@@ -1,0 +1,22 @@
+# Python & Virtualenv
+__pycache__/
+*.py[cod]
+venv/
+.env
+
+# Node & React
+node_modules/
+dist/
+build/
+
+# Android / Gradle
+.gradle/
+local.properties
+.idea/
+*.apk
+
+# ML Models & Uploads
+*.pt
+*.tflite
+backend/uploads/*
+!backend/uploads/.gitkeep
