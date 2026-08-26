@@ -1,4 +1,4 @@
-type Case = {
+export type Case = {
   case_id: number;
   farmer_name: string;
   crop: string;
@@ -9,7 +9,7 @@ type Case = {
   status: "Pending Expert";
 };
 
-const mockCases: Case[] = [
+export const mockCases: Case[] = [
   {
     case_id: 101,
     farmer_name: "Ramesh Patil",
@@ -62,7 +62,15 @@ const mockCases: Case[] = [
   },
 ];
 
-function ExpertTriagePage() {
+type ExpertTriagePageProps = {
+  cases: Case[];
+  onSelectCase: (caseData: Case) => void;
+};
+
+function ExpertTriagePage({
+  cases,
+  onSelectCase,
+}: ExpertTriagePageProps) {
   return (
     <div className="page-container">
       <div className="page-header">
@@ -75,7 +83,7 @@ function ExpertTriagePage() {
 
         <div className="pending-card">
           <span>Pending Cases</span>
-          <strong>{mockCases.length}</strong>
+          <strong>{cases.length}</strong>
         </div>
       </div>
 
@@ -95,8 +103,12 @@ function ExpertTriagePage() {
           </thead>
 
           <tbody>
-            {mockCases.map((item) => (
-              <tr key={item.case_id}>
+            {cases.map((item) => (
+              <tr
+  key={item.case_id}
+  onClick={() => onSelectCase(item)}
+  className="case-row"
+>
                 <td>#{item.case_id}</td>
                 <td>{item.farmer_name}</td>
                 <td>{item.crop}</td>
