@@ -1,108 +1,135 @@
 ﻿import os
-from typing import List, Dict
+import logging
+from typing import Dict, List, Optional
+from twilio.rest import Client
+from twilio.base.exceptions import TwilioRestException
 
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "mock_sid")
-TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "mock_token")
-TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "+1234567890")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("AlertDispatcher")
 
-DEMO_FARMERS_REGISTRY = [
-    {
-        "farmer_id": "FARM_101",
-        "name": "Ramesh Patil",
-        "district": "Yavatmal",
-        "phone": "+919876543210",
-        "preferred_lang": "mr"
+# Production Disease-to-Advisory Marathi Knowledge Engine
+DISEASE_KNOWLEDGE_BASE: Dict[str, Dict[str, str]] = {
+    "pink_bollworm": {
+        "marathi_name": "गुलाबी बोंडअळी (Pink Bollworm)",
+        "remedy_mr": "तात्काळ फेरोमोन ट्रॅप लावा आणि निंबोळी अर्क ५% किंवा प्रोफिनोफॉस ५०% EC (३० मिली/१० लिटर) फवारणी करा. महा-अॅग्रो केंद्रात अनुदान उपलब्ध आहे.",
+        "remedy_hi": "तुरंत फेरोमोन ट्रैप लगाएं और नीम अर्क 5% या प्रोफिनोफॉस 50% EC कीटनाशक का छिड़काव करें।"
     },
-    {
-        "farmer_id": "FARM_102",
-        "name": "Suresh Deshmukh",
-        "district": "Yavatmal",
-        "phone": "+919811122233",
-        "preferred_lang": "mr"
+    "soybean_rust": {
+        "marathi_name": "सोयाबीन तांबेरा (Soybean Rust)",
+        "remedy_mr": "हेक्साकोनाझोल ५% EC (१० मिली) किंवा टेब्युकोनाझोल (१० मिली/१० लिटर) पाणी मिसळून तात्काळ फवारणी करा.",
+        "remedy_hi": "हेक्साकोनाज़ोल 5% EC या टेबुकोनाज़ोल का प्रति 10 लीटर पानी में मिलाकर छिड़काव करें।"
     },
-    {
-        "farmer_id": "FARM_103",
-        "name": "Kishore Jadhav",
-        "district": "Nanded",
-        "phone": "+919844455566",
-        "preferred_lang": "hi"
+    "cotton_leaf_curl": {
+        "marathi_name": "कापूस पाने कुरळे रोग (Leaf Curl Virus)",
+        "remedy_mr": "पांढऱ्या माशीच्या नियंत्रणासाठी डायमेथोएट ३०% EC (१५ मिली/१० लिटर) फवारा.",
+        "remedy_hi": "सफेद मक्खी नियंत्रण के लिए डाइमेथोएट का छिड़काव करें।"
+    },
+    "tomato_early_blight": {
+        "marathi_name": "टोमॅटो करपा रोग (Early Blight)",
+        "remedy_mr": "मँकोझेब ७५% WP (२५ ग्रॅम/१० लिटर) किंवा कॉपर ऑक्सिक्लोराईडची फवारणी करा.",
+        "remedy_hi": "मैंकोजेब 75% WP का छिड़काव करें।"
     }
-]
-
-ALERT_TEMPLATES = {
-    "mr": (
-        "🚨 [PeekRakshak Alert]\n"
-        "नमस्कार {name} शेतकरी बांधव,\n"
-        "{district} जिल्ह्यात '{disease}' रोगाचा प्रादुर्भाव आढळला आहे.\n"
-        "उपाय: {advisory}\n"
-        "नजीकच्या महा-अॅग्रो केंद्रात अनुदानित औषध उपलब्ध आहे."
-    ),
-    "hi": (
-        "🚨 [PeekRakshak Alert]\n"
-        "किसान भाई {name},\n"
-        "{district} जिले में '{disease}' का प्रकोप पाया गया है।\n"
-        "सलाह: {advisory}\n"
-        "निकटतम कृषि केंद्र से संपर्क करें।"
-    )
 }
 
-def get_farmers_by_district(district: str) -> List[Dict]:
-    return [f for f in DEMO_FARMERS_REGISTRY if f["district"].lower() == district.lower()]
-
-def send_sms_alert(to_phone: str, message_body: str) -> bool:
-    try:
-        if TWILIO_ACCOUNT_SID == "mock_sid" or "your_account_sid" in TWILIO_ACCOUNT_SID:
-            print(f"\n[MOCK SMS DISPATCHED] -> To: {to_phone}")
-            print(f"Message Content:\n{message_body}\n" + "-"*50)
-            return True
+class AlertDispatcher:
+    def __init__(self):
+        self.account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        self.auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+        self.from_number = os.getenv("TWILIO_PHONE_NUMBER")
         
-        from twilio.rest import Client
-        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-        message = client.messages.create(
-            body=message_body,
-            from_=TWILIO_PHONE_NUMBER,
-            to=to_phone
-        )
-        print(f"[SUCCESS] SMS sent to {to_phone} (SID: {message.sid})")
-        return True
-    except Exception as e:
-        print(f"[ERROR] Failed to send SMS to {to_phone}: {str(e)}")
-        return False
+        self.client: Optional[Client] = None
+        if self.account_sid and self.auth_token:
+            try:
+                self.client = Client(self.account_sid, self.auth_token)
+            except Exception as e:
+                logger.error(f"Failed to initialize Twilio client: {str(e)}")
 
-def broadcast_district_alert(district: str, disease: str, advisory: str) -> Dict:
-    target_farmers = get_farmers_by_district(district)
+    def build_localized_sms(self, farmer_name: str, district: str, disease_key: str, custom_advisory: Optional[str] = None, lang: str = "mr") -> str:
+        """Disease aur location ke hisaab se authentic Marathi/Hindi SMS generate karta hai"""
+        disease_info = DISEASE_KNOWLEDGE_BASE.get(
+            disease_key.lower().replace(" ", "_"), 
+            {
+                "marathi_name": disease_key,
+                "remedy_mr": custom_advisory or "नजीकच्या कृषी विस्तार अधिकाऱ्यांशी संपर्क साधावा.",
+                "remedy_hi": custom_advisory or "निकटतम कृषि विशेषज्ञ से संपर्क करें।"
+            }
+        )
+
+        disease_label = disease_info["marathi_name"] if lang == "mr" else disease_key
+        advisory_body = custom_advisory if custom_advisory else disease_info.get(f"remedy_{lang}", disease_info["remedy_mr"])
+
+        if lang == "mr":
+            return (
+                f"🚨 [PeekRakshak कृषी चेतावणी]\n"
+                f"शेतकरी बांधव {farmer_name},\n"
+                f"{district} जिल्ह्यात '{disease_label}' प्रादुर्भाव नोंदवला गेला आहे.\n\n"
+                f"तातडीचा उपाय:\n{advisory_body}\n\n"
+                f"MahaAgro केंद्रात अनुदानित औषधे उपलब्ध आहेत."
+            )
+        else:
+            return (
+                f"🚨 [PeekRakshak Alert]\n"
+                f"किसान {farmer_name},\n"
+                f"{district} जिले में '{disease_key}' का प्रकोप देखा गया है।\n\n"
+                f"सलाह:\n{advisory_body}"
+            )
+
+    def dispatch_sms(self, to_phone: str, body: str) -> Dict:
+        """Twilio Live API endpoint execution"""
+        if not self.client or not self.from_number:
+            logger.warning(f"[GATEWAY UNCONFIGURED] SMS to {to_phone} simulated. Twilio credentials not found in env.")
+            return {"success": True, "provider": "simulation", "to": to_phone, "sid": "SIMULATED_SID"}
+        
+        try:
+            message = self.client.messages.create(
+                body=body,
+                from_=self.from_number,
+                to=to_phone
+            )
+            logger.info(f"SMS dispatched to {to_phone} successfully. SID: {message.sid}")
+            return {"success": True, "provider": "twilio", "to": to_phone, "sid": message.sid}
+        except TwilioRestException as e:
+            logger.error(f"Twilio API Error sending to {to_phone}: {e.msg} (Code: {e.code})")
+            return {"success": False, "error": e.msg, "code": e.code}
+
+# Singleton instance for Backend Routes
+dispatcher = AlertDispatcher()
+
+def trigger_outbreak_broadcast(district: str, disease_key: str, custom_advisory: Optional[str] = None, target_farmers: Optional[List[Dict]] = None) -> Dict:
+    """
+    Production entrypoint: Backend API isko direct call karega jab dashboard se trigger aayega.
+    """
+    # Demo targets fallback
     if not target_farmers:
-        return {"status": "warning", "message": f"No farmers registered under {district}", "dispatched": 0}
-    
-    success_count = 0
+        target_farmers = [
+            {"name": "Ramesh Patil", "phone": "+919876543210", "lang": "mr"},
+            {"name": "Suresh Deshmukh", "phone": "+919811122233", "lang": "mr"}
+        ]
+
+    results = []
     for farmer in target_farmers:
-        lang = farmer.get("preferred_lang", "mr")
-        template = ALERT_TEMPLATES.get(lang, ALERT_TEMPLATES["mr"])
-        
-        sms_text = template.format(
-            name=farmer["name"],
+        message_text = dispatcher.build_localized_sms(
+            farmer_name=farmer["name"],
             district=district,
-            disease=disease,
-            advisory=advisory
+            disease_key=disease_key,
+            custom_advisory=custom_advisory,
+            lang=farmer.get("lang", "mr")
         )
-        
-        if send_sms_alert(farmer["phone"], sms_text):
-            success_count += 1
-            
+        res = dispatcher.dispatch_sms(farmer["phone"], message_text)
+        results.append(res)
+
     return {
-        "status": "success",
+        "status": "completed",
         "district": district,
-        "total_targets": len(target_farmers),
-        "dispatched_count": success_count
+        "disease": disease_key,
+        "total_dispatched": len(results),
+        "details": results
     }
 
 if __name__ == "__main__":
-    print("========================================")
-    print("  PEEKRAKSHAK SMS BOT SIMULATION")
-    print("========================================")
-    result = broadcast_district_alert(
+    print("Testing Live Advisory Builder & Dispatch Pipeline...")
+    output = trigger_outbreak_broadcast(
         district="Yavatmal",
-        disease="Pink Bollworm (बोंडअळी)",
-        advisory="तात्काळ Neem Cake (Rs. 180) आणि Pheromone Trap चा वापर करा."
+        disease_key="pink_bollworm"
     )
-    print("\nExecution Result:", result)
+    print("\nExecution Summary:", output)
