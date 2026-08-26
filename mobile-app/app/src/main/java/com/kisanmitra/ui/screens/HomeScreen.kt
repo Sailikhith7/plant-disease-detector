@@ -1,13 +1,12 @@
 package com.kisanmitra.ui.screens
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.content.Context
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.ImageCapture
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -19,13 +18,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import com.google.android.gms.location.LocationServices
-import kotlinx.coroutines.launch
+import coil.compose.rememberAsyncImagePainter
+import com.kisanmitra.ui.components.CameraView
+import com.kisanmitra.ui.components.captureImageToFile
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,6 +36,9 @@ fun HomeScreen() {
     var currentStep by remember { mutableIntStateOf(1) }
     var selectedCrop by remember { mutableStateOf("Cotton") }
     var selectedLanguage by remember { mutableStateOf("en") }
+
+    var capturedPhotoFile by remember { mutableStateOf<File?>(null) }
+    val imageCapture = remember { ImageCapture.Builder().build() }
 
     var resultCrop by remember { mutableStateOf("") }
     var resultDisease by remember { mutableStateOf("") }
@@ -144,35 +148,45 @@ fun HomeScreen() {
                     Text("Align infected $selectedCrop leaf in viewfinder", fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Card(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(300.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        shape = RoundedCornerShape(16.dp)
+                            .height(380.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.Black),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "📷 [ Camera Live Viewfinder Area ]\nCenter the plant leaf here",
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        if (hasCameraPermission) {
+                            CameraView(
+                                modifier = Modifier.fillMaxSize(),
+                                imageCapture = imageCapture
                             )
+                        } else {
+                            Text("Camera permission required", color = Color.White)
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
                     Button(
                         onClick = {
-                            resultCrop = selectedCrop
-                            resultDisease = "Pink Bollworm"
-                            resultConfidence = 0.88f
-                            culturalAdvisory = "Destroy crop residue and install pheromone traps."
-                            biologicalAdvisory = "Release Trichogramma bactrae parasitoids."
-                            chemicalAdvisory = "Spray Chlorantraniliprole 18.5% SC @ 60ml/acre."
-                            currentStep = 3
+                            captureImageToFile(
+                                context = context,
+                                imageCapture = imageCapture,
+                                onSuccess = { file ->
+                                    capturedPhotoFile = file
+                                    resultCrop = selectedCrop
+                                    resultDisease = "Pink Bollworm"
+                                    resultConfidence = 0.91f
+                                    culturalAdvisory = "Destroy infected bolls and install pheromone traps."
+                                    biologicalAdvisory = "Release Trichogramma bactrae parasitoids (50,000/ha)."
+                                    chemicalAdvisory = "Spray Chlorantraniliprole 18.5% SC @ 60ml/acre."
+                                    currentStep = 3
+                                },
+                                onError = {
+                                    Toast.makeText(context, "Failed to capture photo", Toast.LENGTH_SHORT).show()
+                                }
+                            )
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -201,6 +215,19 @@ fun HomeScreen() {
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
+
+                    capturedPhotoFile?.let { file ->
+                        Image(
+                            painter = rememberAsyncImagePainter(file),
+                            contentDescription = "Captured Leaf Sample",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
 
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -266,7 +293,10 @@ fun HomeScreen() {
                     Spacer(modifier = Modifier.height(24.dp))
 
                     OutlinedButton(
-                        onClick = { currentStep = 1 },
+                        onClick = {
+                            capturedPhotoFile = null
+                            currentStep = 1
+                        },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Diagnose Another Sample")
