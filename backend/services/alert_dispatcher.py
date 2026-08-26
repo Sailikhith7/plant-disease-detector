@@ -1,135 +1,227 @@
 ﻿import os
+import json
 import logging
+import sqlite3
 from typing import Dict, List, Optional
-from twilio.rest import Client
-from twilio.base.exceptions import TwilioRestException
+import requests
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("AlertDispatcher")
+logger = logging.getLogger("OutbreakAlertEngine")
 
-# Production Disease-to-Advisory Marathi Knowledge Engine
 DISEASE_KNOWLEDGE_BASE: Dict[str, Dict[str, str]] = {
     "pink_bollworm": {
+        "crop": "Cotton",
         "marathi_name": "गुलाबी बोंडअळी (Pink Bollworm)",
-        "remedy_mr": "तात्काळ फेरोमोन ट्रॅप लावा आणि निंबोळी अर्क ५% किंवा प्रोफिनोफॉस ५०% EC (३० मिली/१० लिटर) फवारणी करा. महा-अॅग्रो केंद्रात अनुदान उपलब्ध आहे.",
-        "remedy_hi": "तुरंत फेरोमोन ट्रैप लगाएं और नीम अर्क 5% या प्रोफिनोफॉस 50% EC कीटनाशक का छिड़काव करें।"
+        "default_remedy": "फेरोमोन ट्रॅप एकरी ५ लावा आणि निंबोळी अर्क ५% किंवा प्रोफिनोफॉस ५०% EC (३० मिली/१० लिटर) फवारणी करा."
     },
     "soybean_rust": {
+        "crop": "Soybean",
         "marathi_name": "सोयाबीन तांबेरा (Soybean Rust)",
-        "remedy_mr": "हेक्साकोनाझोल ५% EC (१० मिली) किंवा टेब्युकोनाझोल (१० मिली/१० लिटर) पाणी मिसळून तात्काळ फवारणी करा.",
-        "remedy_hi": "हेक्साकोनाज़ोल 5% EC या टेबुकोनाज़ोल का प्रति 10 लीटर पानी में मिलाकर छिड़काव करें।"
+        "default_remedy": "हेक्साकोनाझोल ५% EC (१० मिली) किंवा टेब्युकोनाझोल (१० मिली/१० लिटर) पाण्यात मिसळून तात्काळ फवारणी करा."
     },
-    "cotton_leaf_curl": {
-        "marathi_name": "कापूस पाने कुरळे रोग (Leaf Curl Virus)",
-        "remedy_mr": "पांढऱ्या माशीच्या नियंत्रणासाठी डायमेथोएट ३०% EC (१५ मिली/१० लिटर) फवारा.",
-        "remedy_hi": "सफेद मक्खी नियंत्रण के लिए डाइमेथोएट का छिड़काव करें।"
-    },
-    "tomato_early_blight": {
-        "marathi_name": "टोमॅटो करपा रोग (Early Blight)",
-        "remedy_mr": "मँकोझेब ७५% WP (२५ ग्रॅम/१० लिटर) किंवा कॉपर ऑक्सिक्लोराईडची फवारणी करा.",
-        "remedy_hi": "मैंकोजेब 75% WP का छिड़काव करें।"
+    "leaf_curl": {
+        "crop": "Tomato",
+        "marathi_name": "पाने आकसणे/कुरळे रोग (Leaf Curl)",
+        "default_remedy": "पांढऱ्या माशीच्या नियंत्रणासाठी डायमेथोएट ३०% EC (१५ मिली/१० लिटर) फवारणी करावी."
     }
 }
 
-class AlertDispatcher:
-    def __init__(self):
-        self.account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-        self.auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-        self.from_number = os.getenv("TWILIO_PHONE_NUMBER")
-        
-        self.client: Optional[Client] = None
-        if self.account_sid and self.auth_token:
-            try:
-                self.client = Client(self.account_sid, self.auth_token)
-            except Exception as e:
-                logger.error(f"Failed to initialize Twilio client: {str(e)}")
+class OutbreakAlertEngine:
+    def __init__(self, db_path: str = "data/peekrakshak.db", bot_token: str = "8899516372:AAG7vxg5nZHGavPKSHI3uyIrpOTUA9yoyII"):
+        self.db_path = db_path
+        self.bot_token = bot_token
+        self.telegram_url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+        self._init_sqlite_mock_db()
 
-    def build_localized_sms(self, farmer_name: str, district: str, disease_key: str, custom_advisory: Optional[str] = None, lang: str = "mr") -> str:
-        """Disease aur location ke hisaab se authentic Marathi/Hindi SMS generate karta hai"""
-        disease_info = DISEASE_KNOWLEDGE_BASE.get(
-            disease_key.lower().replace(" ", "_"), 
+    def _init_sqlite_mock_db(self):
+        """Initializes local SQLite database with schema and mock farmers if not exists."""
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        # Farmers registry table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS farmers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                farmer_id TEXT UNIQUE,
+                full_name TEXT,
+                phone_number TEXT,
+                district TEXT,
+                taluka TEXT,
+                primary_crop TEXT,
+                preferred_lang TEXT DEFAULT 'mr',
+                telegram_chat_id TEXT
+            )
+        ''')
+
+        # Disease scan logs (to detect outbreaks)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS disease_scans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                scan_id TEXT,
+                district TEXT,
+                crop TEXT,
+                disease_detected TEXT,
+                confidence REAL,
+                scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # Alert dispatch history
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS alert_dispatches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                district TEXT,
+                disease TEXT,
+                target_phone TEXT,
+                message_body TEXT,
+                delivery_channel TEXT,
+                status TEXT,
+                dispatched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # Seed initial farmer dataset if empty
+        cursor.execute("SELECT COUNT(*) FROM farmers")
+        if cursor.fetchone()[0] == 0:
+            mock_farmers = [
+                ('MH_YAV_001', 'Ramesh Patil', '7710974749', 'Yavatmal', 'Pusad', 'Cotton', 'mr', '7696303650'),
+                ('MH_YAV_002', 'Suresh Deshmukh', '9811122233', 'Yavatmal', 'Darwha', 'Cotton', 'mr', '7696303650'),
+                ('MH_NAN_001', 'Kishore Jadhav', '9844455566', 'Nanded', 'Hadgaon', 'Soybean', 'mr', '7696303650'),
+                ('MH_NAS_001', 'Sunil Shinde', '9833344455', 'Nashik', 'Niphad', 'Tomato', 'mr', '7696303650')
+            ]
+            cursor.executemany('''
+                INSERT INTO farmers (farmer_id, full_name, phone_number, district, taluka, primary_crop, preferred_lang, telegram_chat_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', mock_farmers)
+
+        conn.commit()
+        conn.close()
+
+    def check_outbreak_threshold(self, district: str, disease_key: str, threshold: int = 3) -> bool:
+        """Evaluates scan records to detect cluster outbreaks in a district."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT COUNT(*) FROM disease_scans 
+            WHERE district = ? AND disease_detected = ?
+        ''', (district, disease_key))
+        count = cursor.fetchone()[0]
+        conn.close()
+        return count >= threshold
+
+    def get_target_farmers(self, district: str, crop: str) -> List[Dict]:
+        """Fetches registered farmers in affected zone cultivating the specific crop."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT farmer_id, full_name, phone_number, district, taluka, telegram_chat_id, preferred_lang
+            FROM farmers
+            WHERE district = ? AND primary_crop = ?
+        ''', (district, crop))
+        rows = cursor.fetchall()
+        conn.close()
+
+        return [
             {
-                "marathi_name": disease_key,
-                "remedy_mr": custom_advisory or "नजीकच्या कृषी विस्तार अधिकाऱ्यांशी संपर्क साधावा.",
-                "remedy_hi": custom_advisory or "निकटतम कृषि विशेषज्ञ से संपर्क करें।"
+                "farmer_id": r[0],
+                "name": r[1],
+                "phone": r[2],
+                "district": r[3],
+                "taluka": r[4],
+                "chat_id": r[5],
+                "lang": r[6]
             }
-        )
-
-        disease_label = disease_info["marathi_name"] if lang == "mr" else disease_key
-        advisory_body = custom_advisory if custom_advisory else disease_info.get(f"remedy_{lang}", disease_info["remedy_mr"])
-
-        if lang == "mr":
-            return (
-                f"🚨 [PeekRakshak कृषी चेतावणी]\n"
-                f"शेतकरी बांधव {farmer_name},\n"
-                f"{district} जिल्ह्यात '{disease_label}' प्रादुर्भाव नोंदवला गेला आहे.\n\n"
-                f"तातडीचा उपाय:\n{advisory_body}\n\n"
-                f"MahaAgro केंद्रात अनुदानित औषधे उपलब्ध आहेत."
-            )
-        else:
-            return (
-                f"🚨 [PeekRakshak Alert]\n"
-                f"किसान {farmer_name},\n"
-                f"{district} जिले में '{disease_key}' का प्रकोप देखा गया है।\n\n"
-                f"सलाह:\n{advisory_body}"
-            )
-
-    def dispatch_sms(self, to_phone: str, body: str) -> Dict:
-        """Twilio Live API endpoint execution"""
-        if not self.client or not self.from_number:
-            logger.warning(f"[GATEWAY UNCONFIGURED] SMS to {to_phone} simulated. Twilio credentials not found in env.")
-            return {"success": True, "provider": "simulation", "to": to_phone, "sid": "SIMULATED_SID"}
-        
-        try:
-            message = self.client.messages.create(
-                body=body,
-                from_=self.from_number,
-                to=to_phone
-            )
-            logger.info(f"SMS dispatched to {to_phone} successfully. SID: {message.sid}")
-            return {"success": True, "provider": "twilio", "to": to_phone, "sid": message.sid}
-        except TwilioRestException as e:
-            logger.error(f"Twilio API Error sending to {to_phone}: {e.msg} (Code: {e.code})")
-            return {"success": False, "error": e.msg, "code": e.code}
-
-# Singleton instance for Backend Routes
-dispatcher = AlertDispatcher()
-
-def trigger_outbreak_broadcast(district: str, disease_key: str, custom_advisory: Optional[str] = None, target_farmers: Optional[List[Dict]] = None) -> Dict:
-    """
-    Production entrypoint: Backend API isko direct call karega jab dashboard se trigger aayega.
-    """
-    # Demo targets fallback
-    if not target_farmers:
-        target_farmers = [
-            {"name": "Ramesh Patil", "phone": "+919876543210", "lang": "mr"},
-            {"name": "Suresh Deshmukh", "phone": "+919811122233", "lang": "mr"}
+            for r in rows
         ]
 
-    results = []
-    for farmer in target_farmers:
-        message_text = dispatcher.build_localized_sms(
-            farmer_name=farmer["name"],
-            district=district,
-            disease_key=disease_key,
-            custom_advisory=custom_advisory,
-            lang=farmer.get("lang", "mr")
+    def compose_advisory(self, farmer_name: str, district: str, disease_key: str, custom_officer_note: Optional[str] = None) -> str:
+        disease_info = DISEASE_KNOWLEDGE_BASE.get(
+            disease_key.lower().replace(" ", "_"), 
+            {"marathi_name": disease_key, "default_remedy": "कृषी सल्लागार केंद्राशी संपर्क साधावा."}
         )
-        res = dispatcher.dispatch_sms(farmer["phone"], message_text)
-        results.append(res)
 
-    return {
-        "status": "completed",
-        "district": district,
-        "disease": disease_key,
-        "total_dispatched": len(results),
-        "details": results
-    }
+        remedy_text = custom_officer_note if custom_officer_note else disease_info["default_remedy"]
+
+        return (
+            f"🚨 *[PeekRakshak कृषी चेतावणी अलर्ट]*\n\n"
+            f"शेतकरी बांधव: *{farmer_name}*\n"
+            f"📍 जिल्हा: *{district}*\n"
+            f"⚠️ आढळलेला रोग: *{disease_info['marathi_name']}*\n\n"
+            f"📋 *तातडीचा उपाय / फवारणी सल्ला:*\n{remedy_text}\n\n"
+            f"🏛 _महा-अॅग्रो केंद्रात अनुदानित औषधे व खते उपलब्ध आहेत._\n"
+            f"📞 टोल-फ्री कृषी मदत: १८००-१२०-१५५१"
+        )
+
+    def dispatch_alert(self, farmer: Dict, message_body: str, district: str, disease_key: str) -> Dict:
+        """Dispatches multi-channel payload (Telegram live notification + GSM SMS log)."""
+        target_chat = farmer.get("chat_id")
+        delivery_status = "FAILED"
+        channel_used = "telegram"
+
+        # 1. Dispatch to device
+        try:
+            res = requests.post(self.telegram_url, json={
+                "chat_id": target_chat,
+                "text": message_body,
+                "parse_mode": "Markdown"
+            }, timeout=8)
+            if res.json().get("ok"):
+                delivery_status = "DELIVERED"
+        except Exception as e:
+            logger.error(f"Dispatch failed for {farmer['farmer_id']}: {str(e)}")
+
+        # 2. Audit Trail Logging into DB
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO alert_dispatches (district, disease, target_phone, message_body, delivery_channel, status)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (district, disease_key, farmer["phone"], message_body, channel_used, delivery_status))
+        conn.commit()
+        conn.close()
+
+        return {
+            "farmer_id": farmer["farmer_id"],
+            "farmer_name": farmer["name"],
+            "phone": farmer["phone"],
+            "status": delivery_status
+        }
+
+    def execute_broadcast_pipeline(self, district: str, disease_key: str, custom_officer_note: Optional[str] = None) -> Dict:
+        """Main execution entrypoint triggered by officer or auto-threshold."""
+        disease_info = DISEASE_KNOWLEDGE_BASE.get(disease_key.lower().replace(" ", "_"), {"crop": "Cotton"})
+        target_crop = disease_info["crop"]
+
+        farmers = self.get_target_farmers(district, target_crop)
+        if not farmers:
+            return {"status": "skipped", "reason": f"No farmers found for {district} - {target_crop}"}
+
+        dispatch_results = []
+        for farmer in farmers:
+            msg = self.compose_advisory(farmer["name"], district, disease_key, custom_officer_note)
+            res = self.dispatch_alert(farmer, msg, district, disease_key)
+            dispatch_results.append(res)
+
+        return {
+            "status": "completed",
+            "district": district,
+            "crop": target_crop,
+            "disease": disease_key,
+            "total_targeted": len(farmers),
+            "dispatches": dispatch_results
+        }
+
+# Singleton instance
+engine = OutbreakAlertEngine()
 
 if __name__ == "__main__":
-    print("Testing Live Advisory Builder & Dispatch Pipeline...")
-    output = trigger_outbreak_broadcast(
+    print("Executing End-to-End Pipeline Test...\n")
+    # Officer enters custom note for Yavatmal Cotton pink bollworm outbreak:
+    result = engine.execute_broadcast_pipeline(
         district="Yavatmal",
-        disease_key="pink_bollworm"
+        disease_key="pink_bollworm",
+        custom_officer_note="कृषी विभागाच्या सूचनेनुसार आज संध्याकाळी सर्व कापूस उत्पादकांनी फेरोमोन ट्रॅप तपासावेत."
     )
-    print("\nExecution Summary:", output)
+    print("Pipeline Execution Summary:")
+    print(json.dumps(result, indent=2, ensure_ascii=False))
