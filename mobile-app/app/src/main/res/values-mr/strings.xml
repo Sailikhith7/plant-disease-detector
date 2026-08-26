@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">प्लांट गार्ड</string>
+    <string name="select_crop">पिकाचा प्रकार निवडा</string>
+    <string name="select_language">पसंतीची भाषा</string>
+    <string name="proceed">पान स्कॅनरवर जा</string>
+    <string name="scan_title">बाधित पान फ्रेममध्ये ठेवा</string>
+    <string name="capture">फोटो काढा आणि तपासा</string>
+    <string name="analyzing">एआय द्वारे पानांची तपासणी सुरू आहे...</string>
+    <string name="diagnosis_result">निदान निकाल</string>
+    <string name="cultural_action">मशागत व्यवस्थापन</string>
+    <string name="biological_solution">जैविक नियंत्रण</string>
+    <string name="chemical_solution">रासायनिक उपचार</string>
+    <string name="scan_another">दुसऱ्या नमुन्याचे निदान करा</string>
+</resources>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Plant Guard</string>
+    <string name="select_crop">Select Crop Type</string>
+    <string name="select_language">Preferred Language</string>
+    <string name="proceed">Proceed to Leaf Scanner</string>
+    <string name="scan_title">Align infected leaf in frame</string>
+    <string name="capture">Capture &amp; Analyze</string>
+    <string name="analyzing">Analyzing leaf sample with AI...</string>
+    <string name="diagnosis_result">Diagnosis Result</string>
+    <string name="cultural_action">Cultural Action</string>
+    <string name="biological_solution">Biological Solution</string>
+    <string name="chemical_solution">Chemical Solution</string>
+    <string name="scan_another">Diagnose Another Sample</string>
+</resources>
