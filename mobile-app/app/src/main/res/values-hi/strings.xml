@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">प्लांट गार्ड</string>
+    <string name="select_crop">फसल का प्रकार चुनें</string>
+    <string name="select_language">पसंदीदा भाषा</string>
+    <string name="proceed">पत्ती स्कैनर पर आगे बढ़ें</string>
+    <string name="scan_title">संक्रमित पत्ती को फ्रेम में रखें</string>
+    <string name="capture">फोटो लें और जांचें</string>
+    <string name="analyzing">एआई द्वारा पत्ती की जांच जारी है...</string>
+    <string name="diagnosis_result">जांच परिणाम</string>
+    <string name="cultural_action">कृषि प्रबंधन</string>
+    <string name="biological_solution">जैविक उपचार</string>
+    <string name="chemical_solution">रासायनिक उपचार</string>
+    <string name="scan_another">अन्य नमूने की जांच करें</string>
+</resources>
