@@ -1,10 +1,7 @@
+import ExpertTriagePage from "./pages/ExpertTriagePage";
+
 function App() {
-  return (
-    <div>
-      <h1>Maharashtra Crop Health Dashboard</h1>
-      <p>Member D Web Dashboard</p>
-    </div>
-  );
+  return <ExpertTriagePage />;
 }
 
 export default App;
