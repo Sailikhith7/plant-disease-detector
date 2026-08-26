@@ -1,66 +1,6 @@
-export type Case = {
-  case_id: number;
-  farmer_name: string;
-  crop: string;
-  disease: string;
-  confidence: number;
-  district: string;
-  severity: "High" | "Medium" | "Low";
-  status: "Pending Expert";
-};
-
-export const mockCases: Case[] = [
-  {
-    case_id: 101,
-    farmer_name: "Ramesh Patil",
-    crop: "Cotton",
-    disease: "Pink Bollworm",
-    confidence: 56,
-    district: "Yavatmal",
-    severity: "High",
-    status: "Pending Expert",
-  },
-  {
-    case_id: 102,
-    farmer_name: "Suresh Shinde",
-    crop: "Soybean",
-    disease: "Rust",
-    confidence: 62,
-    district: "Nanded",
-    severity: "Medium",
-    status: "Pending Expert",
-  },
-  {
-    case_id: 103,
-    farmer_name: "Mahesh Jadhav",
-    crop: "Onion",
-    disease: "Purple Blotch",
-    confidence: 43,
-    district: "Nashik",
-    severity: "High",
-    status: "Pending Expert",
-  },
-  {
-    case_id: 104,
-    farmer_name: "Ganesh More",
-    crop: "Sugarcane",
-    disease: "Leaf Spot",
-    confidence: 68,
-    district: "Kolhapur",
-    severity: "Medium",
-    status: "Pending Expert",
-  },
-  {
-    case_id: 105,
-    farmer_name: "Vijay Pawar",
-    crop: "Cotton",
-    disease: "Leaf Curl",
-    confidence: 51,
-    district: "Akola",
-    severity: "High",
-    status: "Pending Expert",
-  },
-];
+import { useMemo, useState } from "react";
+import type { MockCase } from "../data/mockCases";
+export type Case = MockCase;
 
 type ExpertTriagePageProps = {
   cases: Case[];
@@ -68,9 +8,61 @@ type ExpertTriagePageProps = {
 };
 
 function ExpertTriagePage({
+    
   cases,
   onSelectCase,
 }: ExpertTriagePageProps) {
+    const [search, setSearch] = useState("");
+const [cropFilter, setCropFilter] = useState("All");
+const [districtFilter, setDistrictFilter] = useState("All");
+const [severityFilter, setSeverityFilter] = useState("All");
+const [sortOrder, setSortOrder] = useState("low");
+
+const filteredCases = useMemo(() => {
+  const result = cases.filter((item) => {
+    const searchText = search.toLowerCase();
+
+    const matchesSearch =
+      item.farmer_name.toLowerCase().includes(searchText) ||
+      item.disease.toLowerCase().includes(searchText) ||
+      item.crop.toLowerCase().includes(searchText);
+
+    const matchesCrop =
+      cropFilter === "All" || item.crop === cropFilter;
+
+    const matchesDistrict =
+      districtFilter === "All" ||
+      item.district === districtFilter;
+
+    const matchesSeverity =
+      severityFilter === "All" ||
+      item.severity === severityFilter;
+
+    return (
+      matchesSearch &&
+      matchesCrop &&
+      matchesDistrict &&
+      matchesSeverity
+    );
+  });
+
+  result.sort((a, b) => {
+    if (sortOrder === "low") {
+      return a.confidence - b.confidence;
+    }
+
+    return b.confidence - a.confidence;
+  });
+
+  return result;
+}, [
+  cases,
+  search,
+  cropFilter,
+  districtFilter,
+  severityFilter,
+  sortOrder,
+]);
   return (
     <div className="page-container">
       <div className="page-header">
@@ -88,6 +80,55 @@ function ExpertTriagePage({
       </div>
 
       <div className="table-card">
+        <div className="filter-bar">
+  <input
+    type="text"
+    placeholder="Search farmer, crop or disease..."
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+  />
+
+  <select
+    value={cropFilter}
+    onChange={(e) => setCropFilter(e.target.value)}
+  >
+    <option value="All">All Crops</option>
+    <option value="Cotton">Cotton</option>
+    <option value="Soybean">Soybean</option>
+    <option value="Onion">Onion</option>
+    <option value="Sugarcane">Sugarcane</option>
+  </select>
+
+  <select
+    value={districtFilter}
+    onChange={(e) => setDistrictFilter(e.target.value)}
+  >
+    <option value="All">All Districts</option>
+    <option value="Yavatmal">Yavatmal</option>
+    <option value="Nanded">Nanded</option>
+    <option value="Nashik">Nashik</option>
+    <option value="Kolhapur">Kolhapur</option>
+    <option value="Akola">Akola</option>
+  </select>
+
+  <select
+    value={severityFilter}
+    onChange={(e) => setSeverityFilter(e.target.value)}
+  >
+    <option value="All">All Severity</option>
+    <option value="High">High</option>
+    <option value="Medium">Medium</option>
+    <option value="Low">Low</option>
+  </select>
+
+  <select
+    value={sortOrder}
+    onChange={(e) => setSortOrder(e.target.value)}
+  >
+    <option value="low">Lowest Confidence First</option>
+    <option value="high">Highest Confidence First</option>
+  </select>
+</div>
         <table>
           <thead>
             <tr>
@@ -103,7 +144,7 @@ function ExpertTriagePage({
           </thead>
 
           <tbody>
-            {cases.map((item) => (
+            {filteredCases.map((item) => (
               <tr
   key={item.case_id}
   onClick={() => onSelectCase(item)}
