@@ -1,0 +1,6 @@
+input_id,name,type,govt_subsidized_price,market_price,nearest_coop,district
+INP001,Neem Cake Organic Fertilizer,Fertilizer,180.0,320.0,MahaAgro Kendra Yavatmal,Yavatmal
+INP002,Trichoderma Viride Bio-Fungicide,Fungicide,95.0,210.0,Sheti Vikas Seva Sanstha,Amravati
+INP003,Chlorantraniliprole 18.5% SC,Pesticide,450.0,780.0,Krishi Seva Kendra,Nanded
+INP004,Pheromone Trap + Lure Kit,Pest Trap,60.0,150.0,District Agro Society,Akola
+INP005,Pseudomonas Fluorescens,Bio-Control,110.0,230.0,Kisan Sahakari Kendra,Latur
