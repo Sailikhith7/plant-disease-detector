@@ -1,0 +1,840 @@
+{
+  "cotton_bacterial_blight": {
+    "crop": "cotton",
+    "name": "Cotton Bacterial Blight",
+    "type": "bacterial disease",
+    "description": "A bacterial disease that can affect leaves, stems and sometimes bolls of cotton.",
+    "symptoms": [
+      "Small water-soaked or angular lesions on leaves",
+      "Lesions may become dark brown or black",
+      "Leaf spots may enlarge and cause premature leaf damage",
+      "Stem or boll lesions may occur in severe infections"
+    ],
+    "causes": [
+      "Bacterial infection",
+      "Infected seed or plant debris can contribute to disease spread",
+      "Warm, humid and wet conditions favor bacterial disease development"
+    ],
+    "favorable_conditions": [
+      "Warm and humid weather",
+      "Frequent rainfall or prolonged leaf wetness",
+      "Poor field sanitation"
+    ],
+    "prevention": [
+      "Use healthy, disease-free seed",
+      "Use resistant or tolerant varieties where available",
+      "Remove heavily infected plant debris",
+      "Maintain good field sanitation"
+    ],
+    "management": [
+      "Remove and destroy severely infected plant material",
+      "Avoid unnecessary overhead irrigation",
+      "Use locally recommended bactericidal or copper-based products only according to the current agricultural label",
+      "Consult a local agricultural extension officer for chemical recommendations"
+    ],
+    "source_status": "Verify current local recommendation before chemical treatment"
+  },
+
+  "cotton_curl_virus": {
+    "crop": "cotton",
+    "name": "Cotton Leaf Curl Virus",
+    "type": "viral disease",
+    "description": "A viral disease of cotton associated with leaf-curling symptoms and transmitted primarily by whiteflies.",
+    "symptoms": [
+      "Upward or downward curling of leaves",
+      "Leaf thickening and distortion",
+      "Enlarged veins or vein swelling",
+      "Reduced plant growth in severe infections"
+    ],
+    "causes": [
+      "Cotton leaf curl virus infection",
+      "Spread is associated with whitefly vectors"
+    ],
+    "favorable_conditions": [
+      "Presence of infected plants",
+      "High whitefly populations",
+      "Continuous cultivation of susceptible cotton"
+    ],
+    "prevention": [
+      "Use certified disease-free planting material",
+      "Grow recommended tolerant or resistant varieties",
+      "Remove severely infected plants when recommended locally",
+      "Control whitefly populations using integrated pest management"
+    ],
+    "management": [
+      "There is no direct cure that eliminates the virus from an infected plant",
+      "Focus on controlling the vector and removing sources of infection",
+      "Follow locally recommended whitefly management practices"
+    ],
+    "source_status": "Verify current regional cotton leaf curl recommendations"
+  },
+
+  "cotton_fussarium_wilt": {
+    "crop": "cotton",
+    "name": "Cotton Fusarium Wilt",
+    "type": "fungal disease",
+    "description": "A soil-associated wilt disease that interferes with water movement and can cause progressive yellowing and wilting.",
+    "symptoms": [
+      "Yellowing of leaves",
+      "Wilting of leaves and shoots",
+      "Stunted plant growth",
+      "Vascular discoloration may be visible when stems are cut",
+      "Severely affected plants may die"
+    ],
+    "causes": [
+      "Fusarium species in soil or infected planting material",
+      "The pathogen can persist in soil and crop residues"
+    ],
+    "favorable_conditions": [
+      "Infested soil",
+      "Continuous cultivation of susceptible varieties",
+      "Plant stress and poor crop management"
+    ],
+    "prevention": [
+      "Use healthy seed",
+      "Use resistant or tolerant varieties where available",
+      "Practice crop rotation",
+      "Maintain good field sanitation"
+    ],
+    "management": [
+      "Remove severely affected plants and residues where practical",
+      "Use resistant varieties",
+      "Maintain balanced crop nutrition",
+      "Follow locally recommended biological or chemical management practices"
+    ],
+    "source_status": "Verify current local recommendation"
+  },
+
+  "cotton_healthy": {
+    "crop": "cotton",
+    "name": "Healthy Cotton Plant",
+    "type": "healthy",
+    "description": "The plant shows no characteristic visual symptoms of the diseases represented in the classifier.",
+    "symptoms": [],
+    "causes": [],
+    "favorable_conditions": [],
+    "prevention": [
+      "Maintain balanced nutrition",
+      "Monitor plants regularly",
+      "Maintain field sanitation",
+      "Use healthy planting material"
+    ],
+    "management": [
+      "No disease treatment is indicated based on this classification",
+      "Continue routine crop monitoring"
+    ],
+    "source_status": "General crop-health guidance"
+  },
+
+  "groundnut_early_leaf_spot": {
+    "crop": "groundnut",
+    "name": "Groundnut Early Leaf Spot",
+    "type": "fungal disease",
+    "description": "A foliar fungal disease of groundnut characterized by brown leaf lesions, often with a chlorotic halo.",
+    "symptoms": [
+      "Sub-circular to irregular dark-brown lesions",
+      "Brown spots commonly occur on the upper leaflet surface",
+      "A yellow or chlorotic halo may surround lesions",
+      "Severe infection causes leaf yellowing, necrosis and premature defoliation"
+    ],
+    "causes": [
+      "Cercospora arachidicola",
+      "The pathogen can survive in infected plant debris"
+    ],
+    "favorable_conditions": [
+      "Warm and humid weather",
+      "Frequent leaf wetness",
+      "Presence of infected crop debris"
+    ],
+    "prevention": [
+      "Use resistant varieties where available",
+      "Remove infected plant debris",
+      "Control volunteer plants and weeds",
+      "Use good crop rotation practices"
+    ],
+    "management": [
+      "Use locally recommended fungicides when disease pressure warrants treatment",
+      "Rotate fungicide modes of action to reduce resistance risk",
+      "Follow current agricultural label instructions"
+    ],
+    "source_status": "ICAR-CCARI groundnut disease management"
+  },
+
+  "groundnut_early_rust": {
+    "crop": "groundnut",
+    "name": "Groundnut Rust",
+    "type": "fungal disease",
+    "description": "A rust disease of groundnut that produces reddish-brown to orange pustules, especially on leaf surfaces.",
+    "symptoms": [
+      "Orange or reddish-brown pustules",
+      "Pustules commonly develop on the lower leaf surface",
+      "Leaves become necrotic and dry",
+      "Severe infection can reduce the functional leaf area"
+    ],
+    "causes": [
+      "Puccinia arachidis"
+    ],
+    "favorable_conditions": [
+      "Warm and humid weather",
+      "Extended periods favorable for fungal infection",
+      "Dense crop canopies"
+    ],
+    "prevention": [
+      "Use resistant varieties where available",
+      "Remove infected plant debris",
+      "Maintain good field sanitation"
+    ],
+    "management": [
+      "Use locally recommended fungicides when required",
+      "Monitor fields regularly for rust pustules",
+      "Follow current agricultural label instructions"
+    ],
+    "source_status": "ICAR-CCARI groundnut disease management"
+  },
+
+  "groundnut_healthy_leaf": {
+    "crop": "groundnut",
+    "name": "Healthy Groundnut Plant",
+    "type": "healthy",
+    "description": "The plant does not show characteristic symptoms of the groundnut diseases represented in the classifier.",
+    "symptoms": [],
+    "causes": [],
+    "favorable_conditions": [],
+    "prevention": [
+      "Maintain balanced nutrition",
+      "Use healthy seed",
+      "Monitor for foliar diseases",
+      "Maintain field sanitation"
+    ],
+    "management": [
+      "No disease treatment is indicated based on this classification",
+      "Continue routine crop monitoring"
+    ],
+    "source_status": "General crop-health guidance"
+  },
+
+  "groundnut_late_leaf_spot": {
+    "crop": "groundnut",
+    "name": "Groundnut Late Leaf Spot",
+    "type": "fungal disease",
+    "description": "A major foliar disease of groundnut characterized by dark lesions, particularly on the lower leaf surface.",
+    "symptoms": [
+      "Dark circular to nearly circular lesions",
+      "Black or dark lesions are commonly visible on the lower leaf surface",
+      "Lesions may lack the prominent yellow halo associated with early leaf spot",
+      "Severe infection causes yellowing, necrosis and premature defoliation"
+    ],
+    "causes": [
+      "Phaeoisariopsis personata, also known as Neopseudocercospora personata in modern taxonomy"
+    ],
+    "favorable_conditions": [
+      "Warm and humid conditions",
+      "Frequent leaf wetness",
+      "Dense foliage"
+    ],
+    "prevention": [
+      "Use resistant varieties where available",
+      "Remove infected crop debris",
+      "Control volunteer plants and weeds",
+      "Use appropriate crop rotation"
+    ],
+    "management": [
+      "Use locally recommended fungicide programs when required",
+      "Rotate fungicide modes of action",
+      "Monitor regularly because late leaf spot may occur together with rust"
+    ],
+    "source_status": "ICAR-CCARI and ICAR groundnut disease resources"
+  },
+
+  "groundnut_late_rust": {
+    "crop": "groundnut",
+    "name": "Groundnut Rust",
+    "type": "fungal disease",
+    "description": "Groundnut rust produces characteristic orange to reddish-brown pustules and can cause severe leaf damage.",
+    "symptoms": [
+      "Orange or reddish-brown pustules on leaves",
+      "Pustules are often prominent on lower leaf surfaces",
+      "Leaves become necrotic and dry",
+      "Severe disease reduces photosynthetic leaf area"
+    ],
+    "causes": [
+      "Puccinia arachidis"
+    ],
+    "favorable_conditions": [
+      "Warm and humid weather",
+      "Extended periods of leaf wetness",
+      "Dense crop canopy"
+    ],
+    "prevention": [
+      "Grow resistant varieties where available",
+      "Remove infected crop debris",
+      "Maintain field hygiene"
+    ],
+    "management": [
+      "Use locally recommended fungicide treatments when necessary",
+      "Follow current label instructions",
+      "Avoid repeated use of the same fungicide mode of action"
+    ],
+    "source_status": "ICAR-CCARI groundnut disease management"
+  },
+
+  "groundnut_nutrition_deficiency": {
+    "crop": "groundnut",
+    "name": "Groundnut Nutrient Deficiency",
+    "type": "abiotic disorder",
+    "description": "A visual category representing nutrient-related symptoms rather than a single infectious disease.",
+    "symptoms": [
+      "Leaf yellowing or chlorosis",
+      "Abnormal leaf coloration",
+      "Reduced growth or vigor",
+      "Symptoms vary substantially depending on the nutrient involved"
+    ],
+    "causes": [
+      "Insufficient availability of one or more essential nutrients",
+      "Soil pH or salinity can affect nutrient availability",
+      "Unbalanced fertilization"
+    ],
+    "favorable_conditions": [
+      "Nutrient-poor soils",
+      "Incorrect fertilizer management",
+      "Soil conditions that limit nutrient uptake"
+    ],
+    "prevention": [
+      "Use soil testing where possible",
+      "Apply balanced fertilizers based on crop and soil requirements",
+      "Maintain suitable soil pH and moisture"
+    ],
+    "management": [
+      "Identify the specific nutrient deficiency before treatment",
+      "Use soil or plant analysis where possible",
+      "Apply the deficient nutrient at locally recommended rates"
+    ],
+    "source_status": "Requires field/soil confirmation; not a single disease diagnosis"
+  },
+
+  "ragi_downy": {
+    "crop": "ragi",
+    "name": "Ragi Downy Mildew",
+    "type": "fungal-like disease",
+    "description": "A downy mildew disease that can affect finger millet, particularly under favorable humid conditions.",
+    "symptoms": [
+      "Pale or chlorotic areas on leaves",
+      "Downy growth may develop under humid conditions",
+      "Plants may become weak or stunted",
+      "Severe infection can reduce grain formation"
+    ],
+    "causes": [
+      "Downy mildew pathogen",
+      "Disease development is favored by humid conditions"
+    ],
+    "favorable_conditions": [
+      "High humidity",
+      "Wet foliage",
+      "Dense crop growth"
+    ],
+    "prevention": [
+      "Use healthy seed",
+      "Use resistant varieties where available",
+      "Maintain field sanitation",
+      "Avoid excessive crop density"
+    ],
+    "management": [
+      "Remove severely affected plants when practical",
+      "Use locally recommended disease-management products if necessary",
+      "Follow current agricultural recommendations"
+    ],
+    "source_status": "ICAR and TNAU finger millet disease resources"
+  },
+
+  "ragi_healthy": {
+    "crop": "ragi",
+    "name": "Healthy Ragi Plant",
+    "type": "healthy",
+    "description": "The plant does not show characteristic symptoms of the ragi diseases represented in the classifier.",
+    "symptoms": [],
+    "causes": [],
+    "favorable_conditions": [],
+    "prevention": [
+      "Use healthy seed",
+      "Maintain balanced nutrition",
+      "Monitor regularly for disease symptoms"
+    ],
+    "management": [
+      "No disease treatment is indicated based on this classification"
+    ],
+    "source_status": "General crop-health guidance"
+  },
+
+  "ragi_mottle": {
+    "crop": "ragi",
+    "name": "Ragi Mottle Streak",
+    "type": "viral disease",
+    "description": "A viral disease category associated with chlorotic streaking, mottling and reduced plant vigor.",
+    "symptoms": [
+      "Chlorotic streaks or mottled patterns on leaves",
+      "Pale or weakened plants",
+      "Stunted growth",
+      "Poorly developed or poorly filled earheads in severe cases"
+    ],
+    "causes": [
+      "Finger millet virus or mottle-streak virus complex",
+      "Vector transmission can contribute to spread"
+    ],
+    "favorable_conditions": [
+      "Presence of infected plants",
+      "Presence of insect vectors",
+      "Continuous susceptible cropping"
+    ],
+    "prevention": [
+      "Use healthy planting material",
+      "Remove heavily infected plants where recommended",
+      "Manage insect vectors using integrated pest management"
+    ],
+    "management": [
+      "There is no direct cure for an infected plant",
+      "Focus on vector management and removal of infection sources"
+    ],
+    "source_status": "TNAU finger millet disease resources"
+  },
+
+  "ragi_seedling": {
+    "crop": "ragi",
+    "name": "Ragi Seedling Blight",
+    "type": "fungal disease",
+    "description": "A disease affecting ragi seedlings and young plants, with brown lesions that may enlarge and merge.",
+    "symptoms": [
+      "Small oval or elongated brown leaf spots",
+      "Spots can enlarge and merge into larger lesions",
+      "Dark brown lesions may cause leaf blighting",
+      "The disease can affect leaves, culms, leaf sheaths, neck and panicles"
+    ],
+    "causes": [
+      "Helminthosporium nodulosum is reported as a causal organism for seedling blight/leaf spot"
+    ],
+    "favorable_conditions": [
+      "Humid conditions",
+      "Infected seed or plant debris",
+      "Dense or poorly ventilated crop"
+    ],
+    "prevention": [
+      "Use healthy seed",
+      "Use appropriate seed treatment where recommended",
+      "Maintain nursery and field sanitation"
+    ],
+    "management": [
+      "Remove severely affected seedlings where practical",
+      "Use locally recommended fungicide or biological treatments",
+      "Follow current agricultural label recommendations"
+    ],
+    "source_status": "TNAU finger millet disease resources"
+  },
+
+  "ragi_smut": {
+    "crop": "ragi",
+    "name": "Ragi Smut",
+    "type": "fungal disease",
+    "description": "A smut disease affecting the grain-bearing portions of finger millet.",
+    "symptoms": [
+      "Dark or black smut masses replacing or affecting grains",
+      "Affected fingers or grain-bearing structures may become discolored",
+      "Grain quality and yield can be reduced"
+    ],
+    "causes": [
+      "Smut fungus infecting the reproductive structures"
+    ],
+    "favorable_conditions": [
+      "Presence of infected seed or inoculum",
+      "Favorable moisture conditions during susceptible growth stages"
+    ],
+    "prevention": [
+      "Use healthy seed",
+      "Remove infected plant material",
+      "Use recommended resistant varieties where available"
+    ],
+    "management": [
+      "Use appropriate seed treatment",
+      "Remove and destroy heavily infected earheads",
+      "Follow locally recommended fungicide or biological management"
+    ],
+    "source_status": "ICAR finger millet disease resources"
+  },
+
+  "ragi_wilt": {
+    "crop": "ragi",
+    "name": "Ragi Wilt or Foot Rot",
+    "type": "fungal disease",
+    "description": "A wilt or foot-rot disease that can cause weakening, yellowing and death of ragi plants.",
+    "symptoms": [
+      "Yellowing and wilting",
+      "Weakening near the base of the plant",
+      "Root or basal tissue damage",
+      "Plants may die in patches under severe disease"
+    ],
+    "causes": [
+      "Soil-associated fungal pathogens",
+      "Disease can be favored by stressed plants and poor soil conditions"
+    ],
+    "favorable_conditions": [
+      "Poor drainage",
+      "Soil-borne inoculum",
+      "Plant stress"
+    ],
+    "prevention": [
+      "Use healthy seed",
+      "Maintain proper drainage",
+      "Use crop rotation",
+      "Remove severely affected plants"
+    ],
+    "management": [
+      "Improve soil and water management",
+      "Use biological or chemical treatments recommended locally",
+      "Use tolerant varieties where available"
+    ],
+    "source_status": "TNAU finger millet disease resources"
+  },
+
+  "rice_sheath_blight": {
+    "crop": "rice",
+    "name": "Rice Sheath Blight",
+    "type": "fungal disease",
+    "description": "A fungal disease caused by Rhizoctonia solani that primarily affects leaf sheaths and can spread upward through the canopy.",
+    "symptoms": [
+      "Oval or ellipsoidal greenish-gray lesions on leaf sheaths",
+      "Lesions later develop gray-white centers and brown margins",
+      "Lesions can spread upward to leaves",
+      "Severely affected leaves dry and die"
+    ],
+    "causes": [
+      "Rhizoctonia solani"
+    ],
+    "favorable_conditions": [
+      "High temperature around 28–32°C",
+      "High canopy humidity",
+      "Excessive nitrogen",
+      "Dense crop spacing"
+    ],
+    "prevention": [
+      "Avoid excessive nitrogen",
+      "Use appropriate plant spacing",
+      "Control weeds",
+      "Maintain balanced crop nutrition"
+    ],
+    "management": [
+      "Reduce excessive canopy density",
+      "Manage water appropriately",
+      "Use locally recommended fungicides when required"
+    ],
+    "source_status": "IRRI Rice Knowledge Bank"
+  },
+
+  "rice_bacterial_leaf_blight": {
+    "crop": "rice",
+    "name": "Rice Bacterial Leaf Blight",
+    "type": "bacterial disease",
+    "description": "A bacterial disease that causes water-soaked lesions and progressive drying of rice leaves.",
+    "symptoms": [
+      "Water-soaked lesions near leaf margins or tips",
+      "Lesions expand and become yellow to straw colored",
+      "Leaves may dry from the tip downward",
+      "Severe infection can cause wilting and plant death, particularly in young plants"
+    ],
+    "causes": [
+      "Xanthomonas oryzae pv. oryzae"
+    ],
+    "favorable_conditions": [
+      "Warm and humid weather",
+      "Strong winds and rain",
+      "Excess nitrogen",
+      "Injured plant tissues"
+    ],
+    "prevention": [
+      "Use resistant varieties where available",
+      "Avoid excessive nitrogen",
+      "Maintain field sanitation",
+      "Use healthy seed and planting material"
+    ],
+    "management": [
+      "Remove or manage sources of infection",
+      "Avoid practices that injure plants",
+      "Use locally recommended bactericide or integrated disease-management measures"
+    ],
+    "source_status": "IRRI Rice Diseases Online Resource"
+  },
+
+  "rice_brown_spot": {
+    "crop": "rice",
+    "name": "Rice Brown Spot",
+    "type": "fungal disease",
+    "description": "A fungal leaf and grain disease characterized by brown lesions and commonly associated with stressed or nutritionally deficient plants.",
+    "symptoms": [
+      "Small circular to oval brown lesions on leaves",
+      "Lesions may have darker margins",
+      "Severe infection causes leaf necrosis",
+      "The disease can also affect grains"
+    ],
+    "causes": [
+      "Bipolaris oryzae"
+    ],
+    "favorable_conditions": [
+      "Nutrient-deficient soils",
+      "Drought or water stress",
+      "Poor crop nutrition"
+    ],
+    "prevention": [
+      "Maintain balanced crop nutrition",
+      "Avoid severe water stress",
+      "Use healthy seed",
+      "Maintain good field management"
+    ],
+    "management": [
+      "Correct nutrient deficiencies",
+      "Improve water management",
+      "Use locally recommended fungicides when disease pressure warrants treatment"
+    ],
+    "source_status": "IRRI rice disease resources"
+  },
+
+  "rice_healthy": {
+    "crop": "rice",
+    "name": "Healthy Rice Plant",
+    "type": "healthy",
+    "description": "The plant does not show characteristic symptoms of the rice diseases represented in the classifier.",
+    "symptoms": [],
+    "causes": [],
+    "favorable_conditions": [],
+    "prevention": [
+      "Use healthy seed",
+      "Maintain balanced nutrition",
+      "Maintain appropriate water management",
+      "Monitor fields regularly"
+    ],
+    "management": [
+      "No disease treatment is indicated based on this classification"
+    ],
+    "source_status": "General crop-health guidance"
+  },
+
+  "rice_leaf_blast": {
+    "crop": "rice",
+    "name": "Rice Blast",
+    "type": "fungal disease",
+    "description": "A major fungal disease that can affect leaves, collars, nodes and necks of rice plants.",
+    "symptoms": [
+      "Spindle or diamond-shaped lesions on leaves",
+      "Lesions often have gray or whitish centers and darker margins",
+      "Neck infection can cause panicles to fall over",
+      "Severe infection can produce whiteheads and poor grain formation"
+    ],
+    "causes": [
+      "Magnaporthe oryzae"
+    ],
+    "favorable_conditions": [
+      "Cooler daytime temperatures",
+      "Frequent rain showers",
+      "Leaf wetness and dew",
+      "Excessive nitrogen can increase disease intensity"
+    ],
+    "prevention": [
+      "Use resistant varieties where available",
+      "Avoid excessive nitrogen",
+      "Use balanced fertilization",
+      "Use appropriate planting time and crop management"
+    ],
+    "management": [
+      "Use resistant varieties where available",
+      "Manage nitrogen carefully",
+      "Use locally recommended fungicides when required",
+      "Pay particular attention to disease at heading and neck stages"
+    ],
+    "source_status": "IRRI Rice Knowledge Bank"
+  },
+
+  "rice_leaf_scald": {
+    "crop": "rice",
+    "name": "Rice Leaf Scald",
+    "type": "fungal disease",
+    "description": "A foliar disease that produces scald-like lesions and can reduce functional leaf area.",
+    "symptoms": [
+      "Large brown or grayish lesions on leaves",
+      "Lesions may begin at leaf tips or margins",
+      "Older lesions may become pale or straw colored",
+      "Severe infection can cause extensive leaf drying"
+    ],
+    "causes": [
+      "Fungal pathogen associated with rice leaf scald"
+    ],
+    "favorable_conditions": [
+      "High humidity",
+      "Extended leaf wetness",
+      "Dense crop canopy"
+    ],
+    "prevention": [
+      "Use healthy seed",
+      "Maintain field sanitation",
+      "Avoid excessive crop density",
+      "Maintain balanced nutrition"
+    ],
+    "management": [
+      "Remove infected residues where practical",
+      "Improve crop ventilation",
+      "Use locally recommended fungicides only when necessary"
+    ],
+    "source_status": "IRRI rice disease resources; verify local recommendation"
+  },
+
+  "sugarcane_healthy": {
+    "crop": "sugarcane",
+    "name": "Healthy Sugarcane Plant",
+    "type": "healthy",
+    "description": "The plant does not show characteristic symptoms of the sugarcane diseases represented in the classifier.",
+    "symptoms": [],
+    "causes": [],
+    "favorable_conditions": [],
+    "prevention": [
+      "Use healthy disease-free setts",
+      "Maintain field hygiene",
+      "Use recommended varieties",
+      "Maintain balanced nutrition and water management"
+    ],
+    "management": [
+      "No disease treatment is indicated based on this classification",
+      "Continue routine field monitoring"
+    ],
+    "source_status": "General crop-health guidance"
+  },
+
+  "sugarcane_mosaic": {
+    "crop": "sugarcane",
+    "name": "Sugarcane Mosaic",
+    "type": "viral disease",
+    "description": "A viral disease characterized mainly by mosaic or mottled patterns on sugarcane leaves.",
+    "symptoms": [
+      "Light and dark green mosaic patterns on leaves",
+      "Leaf mottling or streaking",
+      "Reduced vigor in susceptible varieties",
+      "Severe infection can reduce cane yield"
+    ],
+    "causes": [
+      "Sugarcane mosaic virus and related mosaic viruses",
+      "Infected planting material is an important source"
+    ],
+    "favorable_conditions": [
+      "Use of infected setts",
+      "Presence of infected ratoon crops",
+      "Vector-mediated spread"
+    ],
+    "prevention": [
+      "Use disease-free planting material",
+      "Use resistant varieties where available",
+      "Remove severely infected clumps when recommended",
+      "Maintain field hygiene"
+    ],
+    "management": [
+      "There is no direct cure for an infected plant",
+      "Use clean planting material and resistant varieties",
+      "Manage vectors where appropriate"
+    ],
+    "source_status": "ICAR sugarcane disease resources"
+  },
+
+  "sugarcane_redrot": {
+    "crop": "sugarcane",
+    "name": "Sugarcane Red Rot",
+    "type": "fungal disease",
+    "description": "A serious fungal disease of sugarcane that causes characteristic reddish discoloration inside infected stalks.",
+    "symptoms": [
+      "Leaves change from green to orange or yellow and dry from the bottom upward",
+      "Affected canes may show external discoloration",
+      "Splitting an infected stalk reveals reddish internal tissue with intermittent white patches",
+      "Pith may become discolored and may develop an unpleasant odor"
+    ],
+    "causes": [
+      "Colletotrichum falcatum, historically also referred to as Glomerella tucumanensis"
+    ],
+    "favorable_conditions": [
+      "Use of infected seed cane",
+      "Infected crop residues",
+      "Ratoon cropping with infected material"
+    ],
+    "prevention": [
+      "Use healthy disease-free setts",
+      "Use resistant or moderately resistant varieties",
+      "Remove infected clumps",
+      "Practice crop rotation where recommended"
+    ],
+    "management": [
+      "Do not use infected canes as planting material",
+      "Remove and destroy affected clumps",
+      "Use recommended sett treatment",
+      "Follow local sugarcane disease-management recommendations"
+    ],
+    "source_status": "TNAU sugarcane disease resources"
+  },
+
+  "sugarcane_rust": {
+    "crop": "sugarcane",
+    "name": "Sugarcane Rust",
+    "type": "fungal disease",
+    "description": "A foliar fungal disease producing yellow, brown or reddish-brown rust-like lesions and pustules.",
+    "symptoms": [
+      "Small elongated yellowish spots",
+      "Spots become brown, orange-brown or red-brown",
+      "Rust-colored pustules may develop on leaves",
+      "Severe infection can cause premature leaf death"
+    ],
+    "causes": [
+      "Puccinia erianthi"
+    ],
+    "favorable_conditions": [
+      "Warm humid conditions",
+      "Extended leaf wetness",
+      "Susceptible varieties"
+    ],
+    "prevention": [
+      "Use resistant varieties where available",
+      "Remove severely infected leaves",
+      "Maintain field hygiene"
+    ],
+    "management": [
+      "Monitor for rust pustules",
+      "Use locally recommended fungicides when disease pressure warrants treatment",
+      "Follow current agricultural label instructions"
+    ],
+    "source_status": "TNAU sugarcane disease resources"
+  },
+
+  "sugarcane_yellow": {
+    "crop": "sugarcane",
+    "name": "Sugarcane Yellow Leaf Disease",
+    "type": "viral disease",
+    "description": "A viral disease characterized by yellowing of leaf midribs and adjacent leaf tissue, followed by drying and reduced cane growth.",
+    "symptoms": [
+      "Yellowing of the midrib and adjacent leaf tissue",
+      "Yellowing and drying of leaves around the upper canopy",
+      "Severe cases may show spindle drying and bunching at the top",
+      "Stunted cane growth and reduced internode elongation"
+    ],
+    "causes": [
+      "Sugarcane yellow leaf virus",
+      "The virus can be transmitted by aphid vectors and infected planting material"
+    ],
+    "favorable_conditions": [
+      "Planting infected setts",
+      "Presence of aphid vectors",
+      "Susceptible varieties"
+    ],
+    "prevention": [
+      "Use disease-free planting material",
+      "Use resistant or tolerant varieties where available",
+      "Maintain field hygiene",
+      "Use healthy nursery or tissue-culture planting material"
+    ],
+    "management": [
+      "There is no direct cure for an infected plant",
+      "Use healthy planting material",
+      "Manage aphid vectors using integrated pest management",
+      "Remove severely affected material where locally recommended"
+    ],
+    "source_status": "TNAU and ICAR sugarcane disease resources"
+  }
+}

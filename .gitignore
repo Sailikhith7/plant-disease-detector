@@ -18,5 +18,11 @@ local.properties
 # ML Models & Uploads
 *.pt
 *.tflite
+!backend/ml/weights/crop_classifier_v1.tflite
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# Environment variables
+.env
+.env.*
+!.env.example
