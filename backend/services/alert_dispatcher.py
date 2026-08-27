@@ -1,45 +1,26 @@
 ﻿import os
+import requests
 import json
 import logging
 import sqlite3
 from typing import Dict, List, Optional
-import requests
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("OutbreakAlertEngine")
-
-DISEASE_KNOWLEDGE_BASE: Dict[str, Dict[str, str]] = {
-    "pink_bollworm": {
-        "crop": "Cotton",
-        "marathi_name": "गुलाबी बोंडअळी (Pink Bollworm)",
-        "default_remedy": "फेरोमोन ट्रॅप एकरी ५ लावा आणि निंबोळी अर्क ५% किंवा प्रोफिनोफॉस ५०% EC (३० मिली/१० लिटर) फवारणी करा."
-    },
-    "soybean_rust": {
-        "crop": "Soybean",
-        "marathi_name": "सोयाबीन तांबेरा (Soybean Rust)",
-        "default_remedy": "हेक्साकोनाझोल ५% EC (१० मिली) किंवा टेब्युकोनाझोल (१० मिली/१० लिटर) पाण्यात मिसळून तात्काळ फवारणी करा."
-    },
-    "leaf_curl": {
-        "crop": "Tomato",
-        "marathi_name": "पाने आकसणे/कुरळे रोग (Leaf Curl)",
-        "default_remedy": "पांढऱ्या माशीच्या नियंत्रणासाठी डायमेथोएट ३०% EC (१५ मिली/१० लिटर) फवारणी करावी."
-    }
-}
+logger = logging.getLogger("AlertEngine")
 
 class OutbreakAlertEngine:
     def __init__(self, db_path: str = "data/peekrakshak.db", bot_token: str = "8899516372:AAG7vxg5nZHGavPKSHI3uyIrpOTUA9yoyII"):
         self.db_path = db_path
         self.bot_token = bot_token
         self.telegram_url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
-        self._init_sqlite_mock_db()
+        self._init_db()
 
-    def _init_sqlite_mock_db(self):
-        """Initializes local SQLite database with schema and mock farmers if not exists."""
+    def _init_db(self):
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Farmers registry table
+        # Farmers Directory
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS farmers (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,179 +30,157 @@ class OutbreakAlertEngine:
                 district TEXT,
                 taluka TEXT,
                 primary_crop TEXT,
-                preferred_lang TEXT DEFAULT 'mr',
                 telegram_chat_id TEXT
             )
         ''')
 
-        # Disease scan logs (to detect outbreaks)
+        # Disease Case / Complaint Reports Table
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS disease_scans (
+            CREATE TABLE IF NOT EXISTS cases (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                scan_id TEXT,
+                case_id TEXT UNIQUE,
                 district TEXT,
                 crop TEXT,
                 disease_detected TEXT,
                 confidence REAL,
-                scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                status TEXT DEFAULT 'OPEN',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
 
-        # Alert dispatch history
+        # Broadcast Dispatches Audit Trail
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS alert_dispatches (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 district TEXT,
+                crop TEXT,
                 disease TEXT,
                 target_phone TEXT,
-                message_body TEXT,
+                officer_message TEXT,
                 delivery_channel TEXT,
                 status TEXT,
                 dispatched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
 
-        # Seed initial farmer dataset if empty
+        # Auto-migration if column 'crop' is missing in existing sqlite table
+        cursor.execute("PRAGMA table_info(alert_dispatches)")
+        columns = [col[1] for col in cursor.fetchall()]
+        if "crop" not in columns:
+            cursor.execute("ALTER TABLE alert_dispatches ADD COLUMN crop TEXT")
+        if "officer_message" not in columns:
+            cursor.execute("ALTER TABLE alert_dispatches ADD COLUMN officer_message TEXT")
+
+        # Seed sample farmers if empty
         cursor.execute("SELECT COUNT(*) FROM farmers")
         if cursor.fetchone()[0] == 0:
-            mock_farmers = [
-                ('MH_YAV_001', 'Ramesh Patil', '7710974749', 'Yavatmal', 'Pusad', 'Cotton', 'mr', '7696303650'),
-                ('MH_YAV_002', 'Suresh Deshmukh', '9811122233', 'Yavatmal', 'Darwha', 'Cotton', 'mr', '7696303650'),
-                ('MH_NAN_001', 'Kishore Jadhav', '9844455566', 'Nanded', 'Hadgaon', 'Soybean', 'mr', '7696303650'),
-                ('MH_NAS_001', 'Sunil Shinde', '9833344455', 'Nashik', 'Niphad', 'Tomato', 'mr', '7696303650')
+            cursor.executemany('''
+                INSERT INTO farmers (farmer_id, full_name, phone_number, district, taluka, primary_crop, telegram_chat_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', [
+                ('MH_YAV_001', 'Ramesh Patil', '7710974749', 'Yavatmal', 'Pusad', 'Cotton', '7696303650'),
+                ('MH_YAV_002', 'Suresh Deshmukh', '9811122233', 'Yavatmal', 'Darwha', 'Cotton', '7696303650'),
+                ('MH_NAN_001', 'Kishore Jadhav', '9844455566', 'Nanded', 'Hadgaon', 'Soybean', '7696303650'),
+                ('MH_NAS_001', 'Sunil Shinde', '9833344455', 'Nashik', 'Niphad', 'Tomato', '7696303650')
+            ])
+
+        # Seed 6 complaints for Yavatmal Cotton Pink Bollworm (>5 threshold)
+        cursor.execute("SELECT COUNT(*) FROM cases")
+        if cursor.fetchone()[0] == 0:
+            mock_cases = [
+                (f'CASE_YAV_{i}', 'Yavatmal', 'Cotton', 'pink_bollworm', 0.94) for i in range(1, 7)
             ]
             cursor.executemany('''
-                INSERT INTO farmers (farmer_id, full_name, phone_number, district, taluka, primary_crop, preferred_lang, telegram_chat_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', mock_farmers)
+                INSERT INTO cases (case_id, district, crop, disease_detected, confidence)
+                VALUES (?, ?, ?, ?, ?)
+            ''', mock_cases)
 
         conn.commit()
         conn.close()
 
-    def check_outbreak_threshold(self, district: str, disease_key: str, threshold: int = 3) -> bool:
-        """Evaluates scan records to detect cluster outbreaks in a district."""
+    def get_outbreak_summary(self, threshold: int = 5) -> List[Dict]:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT COUNT(*) FROM disease_scans 
-            WHERE district = ? AND disease_detected = ?
-        ''', (district, disease_key))
-        count = cursor.fetchone()[0]
-        conn.close()
-        return count >= threshold
-
-    def get_target_farmers(self, district: str, crop: str) -> List[Dict]:
-        """Fetches registered farmers in affected zone cultivating the specific crop."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT farmer_id, full_name, phone_number, district, taluka, telegram_chat_id, preferred_lang
-            FROM farmers
-            WHERE district = ? AND primary_crop = ?
-        ''', (district, crop))
+            SELECT district, crop, disease_detected, COUNT(*) as case_count
+            FROM cases
+            WHERE status = 'OPEN'
+            GROUP BY district, crop, disease_detected
+            HAVING case_count >= ?
+        ''', (threshold,))
         rows = cursor.fetchall()
         conn.close()
 
         return [
             {
-                "farmer_id": r[0],
-                "name": r[1],
-                "phone": r[2],
-                "district": r[3],
-                "taluka": r[4],
-                "chat_id": r[5],
-                "lang": r[6]
+                "district": r[0],
+                "crop": r[1],
+                "disease": r[2],
+                "case_count": r[3],
+                "threshold_breached": True
             }
             for r in rows
         ]
 
-    def compose_advisory(self, farmer_name: str, district: str, disease_key: str, custom_officer_note: Optional[str] = None) -> str:
-        disease_info = DISEASE_KNOWLEDGE_BASE.get(
-            disease_key.lower().replace(" ", "_"), 
-            {"marathi_name": disease_key, "default_remedy": "कृषी सल्लागार केंद्राशी संपर्क साधावा."}
-        )
-
-        remedy_text = custom_officer_note if custom_officer_note else disease_info["default_remedy"]
-
-        return (
-            f"🚨 *[PeekRakshak कृषी चेतावणी अलर्ट]*\n\n"
-            f"शेतकरी बांधव: *{farmer_name}*\n"
-            f"📍 जिल्हा: *{district}*\n"
-            f"⚠️ आढळलेला रोग: *{disease_info['marathi_name']}*\n\n"
-            f"📋 *तातडीचा उपाय / फवारणी सल्ला:*\n{remedy_text}\n\n"
-            f"🏛 _महा-अॅग्रो केंद्रात अनुदानित औषधे व खते उपलब्ध आहेत._\n"
-            f"📞 टोल-फ्री कृषी मदत: १८००-१२०-१५५१"
-        )
-
-    def dispatch_alert(self, farmer: Dict, message_body: str, district: str, disease_key: str) -> Dict:
-        """Dispatches multi-channel payload (Telegram live notification + GSM SMS log)."""
-        target_chat = farmer.get("chat_id")
-        delivery_status = "FAILED"
-        channel_used = "telegram"
-
-        # 1. Dispatch to device
-        try:
-            res = requests.post(self.telegram_url, json={
-                "chat_id": target_chat,
-                "text": message_body,
-                "parse_mode": "Markdown"
-            }, timeout=8)
-            if res.json().get("ok"):
-                delivery_status = "DELIVERED"
-        except Exception as e:
-            logger.error(f"Dispatch failed for {farmer['farmer_id']}: {str(e)}")
-
-        # 2. Audit Trail Logging into DB
+    def get_target_farmers(self, district: str, crop: str) -> List[Dict]:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO alert_dispatches (district, disease, target_phone, message_body, delivery_channel, status)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (district, disease_key, farmer["phone"], message_body, channel_used, delivery_status))
+            SELECT farmer_id, full_name, phone_number, telegram_chat_id 
+            FROM farmers 
+            WHERE district = ? AND primary_crop = ?
+        ''', (district, crop))
+        rows = cursor.fetchall()
+        conn.close()
+        return [{"farmer_id": r[0], "name": r[1], "phone": r[2], "chat_id": r[3]} for r in rows]
+
+    def dispatch_custom_officer_broadcast(self, district: str, crop: str, disease: str, custom_message: str) -> Dict:
+        farmers = self.get_target_farmers(district, crop)
+        if not farmers:
+            return {"status": "skipped", "message": f"No farmers registered for {district} - {crop}"}
+
+        dispatches = []
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        for farmer in farmers:
+            formatted_sms = (
+                f"🚨 *[कृषी विभाग चेतावणी अलर्ट - {district}]*\n\n"
+                f"शेतकरी बांधव: *{farmer['name']}*\n"
+                f"पीक: *{crop}* | रोग: *{disease}*\n\n"
+                f"📢 *कृषी अधिकाऱ्यांचा संदेश:*\n{custom_message}\n\n"
+                f"🏛 _तातडीच्या मदतीसाठी तालुका कृषी कार्यालयाशी संपर्क साधावा._"
+            )
+
+            delivery_status = "DELIVERED"
+            try:
+                res = requests.post(self.telegram_url, json={
+                    "chat_id": farmer["chat_id"],
+                    "text": formatted_sms,
+                    "parse_mode": "Markdown"
+                }, timeout=8)
+                if not res.json().get("ok"):
+                    delivery_status = "LOGGED"
+            except Exception:
+                delivery_status = "LOGGED"
+
+            cursor.execute('''
+                INSERT INTO alert_dispatches (district, crop, disease, target_phone, officer_message, delivery_channel, status)
+                VALUES (?, ?, ?, ?, ?, 'telegram/sms', ?)
+            ''', (district, crop, disease, farmer["phone"], custom_message, delivery_status))
+
+            dispatches.append({"farmer_name": farmer["name"], "phone": farmer["phone"], "status": delivery_status})
+
         conn.commit()
         conn.close()
 
         return {
-            "farmer_id": farmer["farmer_id"],
-            "farmer_name": farmer["name"],
-            "phone": farmer["phone"],
-            "status": delivery_status
-        }
-
-    def execute_broadcast_pipeline(self, district: str, disease_key: str, custom_officer_note: Optional[str] = None) -> Dict:
-        """Main execution entrypoint triggered by officer or auto-threshold."""
-        disease_info = DISEASE_KNOWLEDGE_BASE.get(disease_key.lower().replace(" ", "_"), {"crop": "Cotton"})
-        target_crop = disease_info["crop"]
-
-        farmers = self.get_target_farmers(district, target_crop)
-        if not farmers:
-            return {"status": "skipped", "reason": f"No farmers found for {district} - {target_crop}"}
-
-        dispatch_results = []
-        for farmer in farmers:
-            msg = self.compose_advisory(farmer["name"], district, disease_key, custom_officer_note)
-            res = self.dispatch_alert(farmer, msg, district, disease_key)
-            dispatch_results.append(res)
-
-        return {
-            "status": "completed",
+            "status": "success",
             "district": district,
-            "crop": target_crop,
-            "disease": disease_key,
-            "total_targeted": len(farmers),
-            "dispatches": dispatch_results
+            "crop": crop,
+            "disease": disease,
+            "total_farmers_notified": len(dispatches),
+            "dispatches": dispatches
         }
 
-# Singleton instance
 engine = OutbreakAlertEngine()
-
-if __name__ == "__main__":
-    print("Executing End-to-End Pipeline Test...\n")
-    # Officer enters custom note for Yavatmal Cotton pink bollworm outbreak:
-    result = engine.execute_broadcast_pipeline(
-        district="Yavatmal",
-        disease_key="pink_bollworm",
-        custom_officer_note="कृषी विभागाच्या सूचनेनुसार आज संध्याकाळी सर्व कापूस उत्पादकांनी फेरोमोन ट्रॅप तपासावेत."
-    )
-    print("Pipeline Execution Summary:")
-    print(json.dumps(result, indent=2, ensure_ascii=False))
