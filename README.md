@@ -6,4 +6,4 @@ The project uses a MobileNetV3-Large image classification model optimized for pl
 
 Dataset
 
-The dataset is a combined multi-crop plant disease dataset containing images of **cotton, groundnut, ragi, rice, and sugarcane**. It includes both healthy and diseased plant images, covering the 27 classes supported by the classifier. The dataset was organized into class-specific folders and preprocessed before training.
+The dataset is a combined multi-crop plant disease dataset containing images of `cotton`, `groundnut`, `ragi`, `rice`, and `sugarcane'. It includes both healthy and diseased plant images, covering the 27 classes supported by the classifier. The dataset was organized into class-specific folders and preprocessed before training.
