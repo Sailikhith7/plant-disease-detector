@@ -1,0 +1,10 @@
+{
+    "temperature": 1.113673448562622,
+    "confidence_threshold": 0.85,
+    "num_classes": 27,
+    "input_size": [
+        224,
+        224
+    ],
+    "model": "MobileNetV3-Large"
+}
