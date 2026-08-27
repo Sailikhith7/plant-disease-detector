@@ -5,6 +5,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.kisanmitra.data.local.AppDatabase
 import com.kisanmitra.data.remote.ApiClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -16,54 +18,33 @@ class SyncWorker(
     workerParams: WorkerParameters
 ) : CoroutineWorker(appContext, workerParams) {
 
-    override suspend fun doWork(): Result {
-        val database = AppDatabase.getDatabase(applicationContext)
-        val dao = database.caseDao()
-        val unsyncedCases = dao.getUnsyncedCases()
+    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        try {
+            val db = AppDatabase.getDatabase(applicationContext)
+            val unsyncedCases = db.caseDao().getUnsyncedCases()
 
-        if (unsyncedCases.isEmpty()) {
-            return Result.success()
-        }
+            for (case in unsyncedCases) {
+                val imageFile = File(case.localImagePath)
+                if (!imageFile.exists()) continue
 
-        var allSuccessful = true
+                val requestFile = imageFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
+                val imagePart = MultipartBody.Part.createFormData("image", imageFile.name, requestFile)
+                val langBody = case.language.toRequestBody("text/plain".toMediaTypeOrNull())
 
-        for (caseItem in unsyncedCases) {
-            val file = File(caseItem.localImagePath)
-            if (!file.exists()) {
-                continue
-            }
-
-            try {
-                val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
-                val imagePart = MultipartBody.Part.createFormData("image", file.name, requestFile)
-                val farmerId = "farmer_001".toRequestBody("text/plain".toMediaTypeOrNull())
-                val cropBody = caseItem.crop.toRequestBody("text/plain".toMediaTypeOrNull())
-                val latBody = caseItem.latitude.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-                val lonBody = caseItem.longitude.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-                val districtBody = "Amaravati".toRequestBody("text/plain".toMediaTypeOrNull())
-                val langBody = caseItem.language.toRequestBody("text/plain".toMediaTypeOrNull())
-
-                val response = ApiClient.apiService.submitCase(
+                val response = ApiClient.apiService.predictDisease(
                     image = imagePart,
-                    farmerId = farmerId,
-                    crop = cropBody,
-                    latitude = latBody,
-                    longitude = lonBody,
-                    district = districtBody,
                     language = langBody
                 )
 
                 if (response.isSuccessful && response.body() != null) {
-                    val result = response.body()!!
-                    dao.markCaseSynced(caseItem.id, result.disease, result.confidence)
-                } else {
-                    allSuccessful = false
+                    val body = response.body()!!
+                    db.caseDao().markCaseSynced(case.id, body.disease, body.confidence)
                 }
-            } catch (e: Exception) {
-                allSuccessful = false
             }
-        }
 
-        return if (allSuccessful) Result.success() else Result.retry()
+            Result.success()
+        } catch (e: Exception) {
+            Result.retry()
+        }
     }
 }

@@ -5,12 +5,11 @@ from dotenv import load_dotenv
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-ENV_PATH = BASE_DIR / ".env"
+ROOT_DIR = Path(__file__).resolve().parents[2]
 
-load_dotenv(ENV_PATH)
-
-OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY")
-
+load_dotenv(BASE_DIR / ".env")
+load_dotenv(ROOT_DIR / ".env")
+load_dotenv()
 
 OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gpt-oss:20b-cloud")

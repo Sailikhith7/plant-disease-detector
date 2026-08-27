@@ -9,14 +9,9 @@ import retrofit2.http.Part
 
 interface ApiService {
     @Multipart
-    @POST("/api/cases")
-    suspend fun submitCase(
+    @POST("api/predict")
+    suspend fun predictDisease(
         @Part image: MultipartBody.Part,
-        @Part("farmerId") farmerId: RequestBody,
-        @Part("crop") crop: RequestBody,
-        @Part("latitude") latitude: RequestBody,
-        @Part("longitude") longitude: RequestBody,
-        @Part("district") district: RequestBody,
         @Part("language") language: RequestBody
     ): Response<CaseResponse>
 }

@@ -85,7 +85,11 @@ CONFIDENCE_THRESHOLD = float(
 try:
     from ai_edge_litert.interpreter import Interpreter
 except ImportError:
-    from tflite_runtime.interpreter import Interpreter
+    try:
+        from tflite_runtime.interpreter import Interpreter
+    except ImportError:
+        import tensorflow as tf
+        Interpreter = tf.lite.Interpreter
 
 
 interpreter = Interpreter(

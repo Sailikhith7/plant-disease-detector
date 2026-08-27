@@ -63,20 +63,15 @@ object AppStrings {
             "btn_proceed" to "पत्ती स्कैनर पर जाएं",
             "scanner_instruction" to "कैमरे के सामने संक्रमित पत्ती रखें",
             "btn_capture" to "📸 फोटो लें और विश्लेषण करें",
-            "analyzing" to "एआई द्वारा पत्ती का विश्लेषण हो रहा है...",
+            "analyzing" to "एआई और आरएजी द्वारा विश्लेषण हो रहा है...",
             "diag_result" to "जांच परिणाम",
             "high_conf" to "उच्च सटीकता",
             "crop_lbl" to "फसल",
             "disease_lbl" to "पहचाना गया रोग",
-            "advisory_title" to "अनुशंसित सलाह (आईपीएम योजना)",
-            "cultural" to "🌱 सांस्कृतिक प्रबंधन",
-            "biological" to "🐞 जैविक नियंत्रण",
-            "chemical" to "🧪 रासायनिक उपचार",
+            "advisory_title" to "एआई उपचार सलाह (RAG Guidance)",
             "btn_restart" to "दूसरे नमूने की जांच करें",
             "disease_name" to "गुलाबी सुंडी (Pink Bollworm)",
-            "cult_text" to "फसल अवशेष नष्ट करें और फेरोमोन ट्रैप लगाएं।",
-            "bio_text" to "ट्राइकोग्रामा बैक्ट्रे परजीवी (50,000/हेक्टेयर) छोड़ें।",
-            "chem_text" to "क्लोरांट्रानिलिप्रोल 18.5% SC @ 60 मिली/एकड़ का छिड़काव करें।",
+            "fallback_advisory" to "फसल अवशेष नष्ट करें, फेरोमोन ट्रैप लगाएं और क्लोरांट्रानिलिप्रोल 18.5% SC @ 60 मिली/एकड़ का छिड़काव करें।",
             "tab_scan" to "स्कैन",
             "tab_history" to "इतिहास",
             "tab_guide" to "गाइडलाइन",
@@ -92,20 +87,15 @@ object AppStrings {
             "btn_proceed" to "पाने स्कॅनरकडे जा",
             "scanner_instruction" to "कॅमेऱ्यासमोर बाधित पान धरा",
             "btn_capture" to "📸 फोटो घ्या आणि विश्लेषण करा",
-            "analyzing" to "एआई द्वारे पानाचे विश्लेषण सुरू आहे...",
+            "analyzing" to "एआई व आरएजी द्वारे विश्लेषण सुरू आहे...",
             "diag_result" to "निदान निकाल",
             "high_conf" to "उच्च अचूकता",
             "crop_lbl" to "पीक",
             "disease_lbl" to "आढळलेला रोग",
-            "advisory_title" to "शिफारस केलेला सल्ला (आयपीएम योजना)",
-            "cultural" to "🌱 मशागती व्यवस्थापन",
-            "biological" to "🐞 जैविक नियंत्रण",
-            "chemical" to "🧪 रासायनिक उपचार",
+            "advisory_title" to "एआय उपचार सल्ला (RAG Guidance)",
             "btn_restart" to "दुसऱ्या नमुन्याची तपासणी करा",
             "disease_name" to "गुलाबी बोंडअळी (Pink Bollworm)",
-            "cult_text" to "पिकाचे अवशेष नष्ट करा आणि कामगंध सापळे लावा.",
-            "bio_text" to "ट्रायकोग्रामा बॅक्ट्रे परोपजीवी कीटक (५०,०००/हेक्टर) सोडा.",
-            "chem_text" to "क्लोरँट्रानिलीप्रोल १८.५% SC @ ६० मिली/एकर फवारणी करा.",
+            "fallback_advisory" to "पिकाचे अवशेष नष्ट करा, कामगंध सापळे लावा आणि योग्य कीटकनाशकाची फवारणी करा.",
             "tab_scan" to "स्कॅन",
             "tab_history" to "इतिहास",
             "tab_guide" to "मार्गदर्शक",
@@ -121,20 +111,15 @@ object AppStrings {
             "btn_proceed" to "Proceed to Leaf Scanner",
             "scanner_instruction" to "Align infected leaf in viewfinder",
             "btn_capture" to "📸 Capture & Analyze",
-            "analyzing" to "Analyzing leaf sample with AI...",
+            "analyzing" to "Analyzing leaf with ML & RAG...",
             "diag_result" to "Diagnosis Result",
             "high_conf" to "High Confidence",
             "crop_lbl" to "Crop",
             "disease_lbl" to "Detected Disease",
-            "advisory_title" to "Recommended Advisory (IPM Plan)",
-            "cultural" to "🌱 Cultural Management",
-            "biological" to "🐞 Biological Control",
-            "chemical" to "🧪 Chemical Treatment",
+            "advisory_title" to "AI Treatment Advisory (RAG Guidance)",
             "btn_restart" to "Diagnose Another Sample",
             "disease_name" to "Pink Bollworm",
-            "cult_text" to "Destroy crop residue and install pheromone traps.",
-            "bio_text" to "Release Trichogramma bactrae parasitoids (50,000/ha).",
-            "chem_text" to "Spray Chlorantraniliprole 18.5% SC @ 60ml/acre.",
+            "fallback_advisory" to "Destroy crop residues, deploy pheromone traps, and apply recommended bio-pesticides or chemical sprays as per IPM guidelines.",
             "tab_scan" to "Scan",
             "tab_history" to "History",
             "tab_guide" to "Guide",
@@ -143,21 +128,6 @@ object AppStrings {
             "hist_synced" to "Synced to Cloud",
             "hist_pending" to "Local Saved (Pending Sync)"
         )
-    }
-}
-
-@Composable
-fun AdvisoryCardItem(title: String, content: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(content, fontSize = 14.sp)
-        }
     }
 }
 
@@ -188,23 +158,14 @@ suspend fun processAndSaveCase(
         )
     } catch (_: Throwable) {}
 
+    // Hit Member B's /api/predict endpoint
     try {
         val requestFile = photoFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
         val imagePart = MultipartBody.Part.createFormData("image", photoFile.name, requestFile)
-        val farmerId = "farmer_001".toRequestBody("text/plain".toMediaTypeOrNull())
-        val cropBody = crop.toRequestBody("text/plain".toMediaTypeOrNull())
-        val latBody = "16.51".toRequestBody("text/plain".toMediaTypeOrNull())
-        val lonBody = "80.52".toRequestBody("text/plain".toMediaTypeOrNull())
-        val districtBody = "Amaravati".toRequestBody("text/plain".toMediaTypeOrNull())
         val langBody = language.toRequestBody("text/plain".toMediaTypeOrNull())
 
-        val response = ApiClient.apiService.submitCase(
+        val response = ApiClient.apiService.predictDisease(
             image = imagePart,
-            farmerId = farmerId,
-            crop = cropBody,
-            latitude = latBody,
-            longitude = lonBody,
-            district = districtBody,
             language = langBody
         )
 
@@ -222,18 +183,12 @@ suspend fun processAndSaveCase(
 
     val str = AppStrings.get(language)
     return@withContext CaseResponse(
-        caseId = "KM_${System.currentTimeMillis() % 10000}",
         crop = crop,
         disease = defaultDisease,
         confidence = 0.92f,
-        status = "auto_resolved",
-        requiresExpertReview = false,
-        advisory = com.kisanmitra.data.remote.AdvisoryData(
-            severity = "medium",
-            cultural = str["cult_text"] ?: "",
-            biological = str["bio_text"] ?: "",
-            chemical = str["chem_text"] ?: ""
-        )
+        status = "confident",
+        response = str["fallback_advisory"] ?: "",
+        language = language
     )
 }
 
@@ -432,21 +387,24 @@ fun GuideTabContent(selectedLanguage: String) {
     val guides = when (selectedLanguage) {
         "hi" -> listOf(
             GuideItem("कपास (Cotton)", "गुलाबी सुंडी, सफेद मक्खी", "फूल और बोंड बनने का समय", "प्रति हेक्टेयर 5 फेरोमोन ट्रैप लगाएं और अत्यधिक यूरिया से बचें।"),
-            GuideItem("सोयाबीन (Soybean)", "तंबाकू इल्ली, तना मक्खी", "अंकुरण और फली विकास", "ट्राइकोडर्मा से बीज उपचार करें और नीम तेल (1500 ppm) का छिड़काव करें।"),
-            GuideItem("प्याज (Onion)", "थ्रिप्स, बैंगनी धब्बा", "कंद विकास अवस्था", "पीले चिपचिपे ट्रैप का उपयोग करें और खेत में उचित जल निकासी बनाए रखें।"),
-            GuideItem("गन्ना (Sugarcane)", "शीर्ष तना छेदक, लाल सड़न", "टिलरिंग और ग्रैंड ग्रोथ", "स्वस्थ बीज सेट का चयन करें और ट्राइकोग्रामा परजीवी छोड़ें।")
+            GuideItem("मूंगफली (Groundnut)", "टिक्का रोग, कॉलर रोट", "अंकुरण और फली विकास", "ट्राइकोडर्मा से बीज उपचार करें और उचित जल निकासी बनाए रखें।"),
+            GuideItem("रागी (Ragi)", "ब्लास्ट रोग, तना छेदक", "टिलरिंग अवस्था", "सहनशील किस्में चुनें और नीम के अर्क का छिड़काव करें।"),
+            GuideItem("चावल (Rice)", "ब्लास्ट, शीथ ब्लाइट", "फुटाव और बालियां निकलने का समय", "उचित दूरी पर रोपाई करें और पोटाश उर्वरक का संतुलित उपयोग करें।"),
+            GuideItem("गन्ना (Sugarcane)", "लाल सड़न, शीर्ष छेदक", "टिलरिंग और विकास", "स्वस्थ बीज सेट का चयन करें और ट्राइकोग्रामा परजीवी छोड़ें।")
         )
         "mr" -> listOf(
             GuideItem("कापूस (Cotton)", "गुलाबी बोंडअळी, पांढरी माशी", "फुलोरा व बोंडे धरण्याची वेळ", "हेक्टरी ५ कामगंध सापळे लावा आणि अतिरिक्त युरियाचा वापर टाळा."),
-            GuideItem("सोयाबीन (Soybean)", "लष्करी अळी, खोड माशी", "उगवण व शेंगा भरणे", "ट्रायकोडर्माने बीजप्रक्रिया करा आणि निंबोळी अर्क (१५०० ppm) फवारा."),
-            GuideItem("कांदा (Onion)", "फुलकिडे (थ्रिप्स), करपा", "कांदा फुगवणीचा काळ", "पिवळे चिकट सापळे वापरा आणि शेतात पाण्याचा योग्य निचरा ठेवा."),
-            GuideItem("ऊस (Sugarcane)", "खोड कीड, तांबेरा / लाल कुज", "फुटवे व वाढीची अवस्था", "निरोगी बेणे वापरा आणि ट्रायकोकार्डचा नियमित वापर करा.")
+            GuideItem("भुईमूग (Groundnut)", "टिक्का रोग, खोडकुज", "उगवण व शेंगा भरणे", "ट्रायकोडर्माने बीजप्रक्रिया करा आणि पाण्याचा चांगला निचरा ठेवा."),
+            GuideItem("नाचणी/रागी (Ragi)", "ब्लास्ट (करपा), खोड किडा", "फुटवे फुटण्याची वेळ", "प्रतिकारक्षम वाण वापरा आणि निंबोळी अर्काची फवारणी करा."),
+            GuideItem("भात/तांदूळ (Rice)", "करपा, कडा करपा", "लोंबी भरण्याची अवस्था", "योग्य अंतरावर लागवड करा आणि पोटॅश खतांचा संतुलित वापर करा."),
+            GuideItem("ऊस (Sugarcane)", "लाल कुज, खोड कीड", "वाढीची अवस्था", "निरोगी बेणे वापरा आणि ट्रायकोकार्डचा वापर करा.")
         )
         else -> listOf(
             GuideItem("Cotton", "Pink Bollworm, Whitefly", "Flowering & Boll Formation", "Install 5 pheromone traps/ha; avoid excessive chemical nitrogen application."),
-            GuideItem("Soybean", "Spodoptera / Leaf Miner, Stem Fly", "Seedling & Pod Development", "Treat seeds with Trichoderma viride; spray neem seed kernel extract (1500 ppm)."),
-            GuideItem("Onion", "Thrips, Purple Blotch", "Bulb Enlargement Stage", "Deploy yellow sticky cards; ensure soil drainage to avoid fungal collar rot."),
-            GuideItem("Sugarcane", "Early Shoot Borer, Red Rot", "Tillering & Rapid Growth", "Use disease-free setts; release Trichogramma chilonis egg parasitoids periodically.")
+            GuideItem("Groundnut", "Tikka Disease, Collar Rot", "Seedling & Pod Development", "Treat seeds with Trichoderma viride; maintain proper soil drainage."),
+            GuideItem("Ragi", "Blast Disease, Stem Borer", "Tillering Stage", "Use blast-resistant varieties; spray neem seed kernel extract (1500 ppm)."),
+            GuideItem("Rice", "Blast, Sheath Blight", "Panicle Initiation", "Maintain balanced NPK with sufficient Potash; avoid water stagnation."),
+            GuideItem("Sugarcane", "Red Rot, Early Shoot Borer", "Tillering & Rapid Growth", "Use disease-free certified setts; release Trichogramma egg parasitoids.")
         )
     }
 
@@ -508,7 +466,7 @@ fun HomeScreen() {
     var isLoading by remember { mutableStateOf(false) }
 
     val imageCapture = remember { ImageCapture.Builder().build() }
-    val crops = listOf("Cotton", "Soybean", "Onion", "Sugarcane")
+    val crops = listOf("Cotton", "Groundnut", "Ragi", "Rice", "Sugarcane")
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -589,7 +547,20 @@ fun HomeScreen() {
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceEvenly
                                 ) {
-                                    crops.forEach { crop ->
+                                    crops.take(3).forEach { crop ->
+                                        FilterChip(
+                                            selected = selectedCrop == crop,
+                                            onClick = { selectedCrop = crop },
+                                            label = { Text(crop) }
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceEvenly
+                                ) {
+                                    crops.drop(3).forEach { crop ->
                                         FilterChip(
                                             selected = selectedCrop == crop,
                                             onClick = { selectedCrop = crop },
@@ -788,28 +759,35 @@ fun HomeScreen() {
                                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                                     ) {
                                         Column(modifier = Modifier.padding(16.dp)) {
-                                            Text("${str["crop_lbl"]}: ${res.crop}", fontSize = 15.sp)
+                                            Text("${str["crop_lbl"]}: ${res.crop.replaceFirstChar { it.uppercase() }}", fontSize = 15.sp)
                                             Text(
-                                                "${str["disease_lbl"]}: ${res.disease}",
+                                                "${str["disease_lbl"]}: ${res.disease.replace('_', ' ').replaceFirstChar { it.uppercase() }}",
                                                 fontSize = 18.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = MaterialTheme.colorScheme.primary
                                             )
-                                            Text("Case ID: #${res.caseId}", fontSize = 12.sp, color = Color.Gray)
+                                            Text("Status: ${res.status}", fontSize = 12.sp, color = Color.Gray)
                                         }
                                     }
 
                                     Spacer(modifier = Modifier.height(16.dp))
 
-                                    res.advisory?.let { adv ->
+                                    if (res.response.isNotBlank()) {
                                         Text(str["advisory_title"] ?: "", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                                         Spacer(modifier = Modifier.height(8.dp))
 
-                                        AdvisoryCardItem(title = str["cultural"] ?: "", content = adv.cultural)
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        AdvisoryCardItem(title = str["biological"] ?: "", content = adv.biological)
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        AdvisoryCardItem(title = str["chemical"] ?: "", content = adv.chemical)
+                                        Card(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
+                                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = res.response,
+                                                modifier = Modifier.padding(14.dp),
+                                                fontSize = 14.sp,
+                                                lineHeight = 20.sp
+                                            )
+                                        }
                                     }
 
                                     Spacer(modifier = Modifier.height(24.dp))

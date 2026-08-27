@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 object ApiClient {
     // Replace with your development machine's local Wi-Fi IP (e.g., http://192.168.1.X:5000)
     // or keep 10.0.2.2 if testing on Android Emulator
-    private const val BASE_URL = "http://10.0.2.2:5000/"
+    private const val BASE_URL = "http://10.202.64.208:8000/"
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
