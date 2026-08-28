@@ -1,12 +1,13 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
+from sqlalchemy.orm import Session
+
 from backend.ml.predictor import predict
 from backend.rag.retriever import get_disease_information
 from backend.rag.llm import generate_response
 from backend.schemas.case_schema import PredictionResponse
+from backend.database import get_db, Case
 
-router = APIRouter(
-    tags=["Plant Disease Detection & Inputs"]
-)
+router = APIRouter()
 
 CONFIDENCE_THRESHOLD = 0.85
 
@@ -23,7 +24,10 @@ def list_inputs():
 @router.post("/predict", response_model=PredictionResponse)
 async def predict_disease(
     image: UploadFile = File(...),
-    language: str = Form("en")
+    language: str = Form("en"),
+    district: str = Form("Yavatmal"),
+    farmer_name: str = Form("App Farmer"),
+    db: Session = Depends(get_db)
 ):
     # 1. Validate language
     if language not in ["en", "mr", "hi"]:
@@ -87,7 +91,23 @@ async def predict_disease(
             detail=f"LLM generation failed: {str(e)}"
         )
 
-    # 7. Return response
+    # 7. Save case to database for Dashboard & Outbreak alerts
+    try:
+        new_case = Case(
+            farmer_name=farmer_name,
+            district=district,
+            crop=prediction["crop"],
+            disease=disease_key,
+            confidence=confidence,
+            severity="High" if confidence >= CONFIDENCE_THRESHOLD else "Medium",
+            status="Pending Expert"
+        )
+        db.add(new_case)
+        db.commit()
+    except Exception as db_err:
+        print(f"[WARN] Failed to log case into DB: {db_err}")
+
+    # 8. Return response
     return PredictionResponse(
         crop=prediction["crop"],
         disease=disease_key,

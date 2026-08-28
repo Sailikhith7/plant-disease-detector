@@ -1,4 +1,14 @@
 import os
+from pathlib import Path
+from backend.database import init_db
+from dotenv import load_dotenv
+
+load_dotenv()
+init_db()
+# Explicitly find and load the .env inside the backend directory
+env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
