@@ -17,6 +17,11 @@ export type MockCase = {
 };
 
 export const mockCases: MockCase[] = [
+  // =========================================
+  // YAVATMAL OUTBREAK DEMO
+  // 6 COMPLAINTS
+  // =========================================
+
   {
     case_id: 101,
     farmer_name: "Ramesh Patil",
@@ -29,6 +34,75 @@ export const mockCases: MockCase[] = [
     latitude: 20.389,
     longitude: 78.13,
   },
+
+  {
+    case_id: 111,
+    farmer_name: "Santosh Shinde",
+    crop: "Cotton",
+    disease: "Pink Bollworm",
+    confidence: 61,
+    district: "Yavatmal",
+    severity: "High",
+    status: "Pending Expert",
+    latitude: 20.389,
+    longitude: 78.13,
+  },
+
+  {
+    case_id: 112,
+    farmer_name: "Ganesh Rathod",
+    crop: "Cotton",
+    disease: "Pink Bollworm",
+    confidence: 58,
+    district: "Yavatmal",
+    severity: "High",
+    status: "Pending Expert",
+    latitude: 20.389,
+    longitude: 78.13,
+  },
+
+  {
+    case_id: 113,
+    farmer_name: "Vilas Pawar",
+    crop: "Cotton",
+    disease: "Pink Bollworm",
+    confidence: 64,
+    district: "Yavatmal",
+    severity: "Medium",
+    status: "Pending Expert",
+    latitude: 20.389,
+    longitude: 78.13,
+  },
+
+  {
+    case_id: 114,
+    farmer_name: "Mahesh More",
+    crop: "Cotton",
+    disease: "Pink Bollworm",
+    confidence: 59,
+    district: "Yavatmal",
+    severity: "High",
+    status: "Pending Expert",
+    latitude: 20.389,
+    longitude: 78.13,
+  },
+
+  {
+    case_id: 115,
+    farmer_name: "Ravi Jadhav",
+    crop: "Cotton",
+    disease: "Pink Bollworm",
+    confidence: 67,
+    district: "Yavatmal",
+    severity: "Medium",
+    status: "Pending Expert",
+    latitude: 20.389,
+    longitude: 78.13,
+  },
+
+  // =========================================
+  // OTHER DISTRICTS
+  // =========================================
 
   {
     case_id: 102,
@@ -82,6 +156,10 @@ export const mockCases: MockCase[] = [
     longitude: 77.01,
   },
 
+  // =========================================
+  // RESOLVED CASES
+  // =========================================
+
   {
     case_id: 106,
     farmer_name: "Prakash Deshmukh",
@@ -124,7 +202,7 @@ export const mockCases: MockCase[] = [
     crop: "Onion",
     disease: "Purple Blotch",
     confidence: 76,
-    district: "Wardha",
+    district: "Pune",
     severity: "Medium",
     status: "Resolved",
     latitude: 18.52,

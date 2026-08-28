@@ -1,66 +1,38 @@
-import axios from "axios";
+// Fetch active outbreaks
+export async function getOutbreaks(threshold = 5) {
+  const response = await fetch(
+    `http://localhost:8000/api/alerts/outbreaks?threshold=${threshold}`
+  );
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+  if (!response.ok) {
+    throw new Error("Failed to fetch outbreaks");
+  }
 
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-});
+  return await response.json();
+}
 
-export type CaseStatus =
-  | "pending"
-  | "Pending Expert"
-  | "resolved";
 
-export type CaseItem = {
-  case_id: number;
-  farmer_name?: string;
+// Send broadcast advisory
+export async function sendBroadcastAdvisory(payload: {
+  district: string;
   crop: string;
   disease: string;
-  confidence: number;
-  district?: string;
-  latitude?: number;
-  longitude?: number;
-  severity?: "High" | "Medium" | "Low";
-  status: CaseStatus;
-};
+  custom_message: string;
+}) {
+  const response = await fetch(
+    "http://localhost:8000/api/alerts/broadcast",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
 
-export async function getPendingCases() {
-  const response = await api.get("/api/cases", {
-    params: {
-      status: "Pending Expert",
-    },
-  });
-
-  return response.data;
-}
-
-export async function getCase(caseId: number) {
-  const response = await api.get(`/api/cases/${caseId}`);
-
-  return response.data;
-}
-
-export async function resolveCase(
-  caseId: number,
-  data: {
-    expert_diagnosis: string;
-    prescription: string;
+  if (!response.ok) {
+    throw new Error("Failed to send broadcast");
   }
-) {
-  const response = await api.patch(
-    `/api/cases/${caseId}`,
-    data
-  );
 
-  return response.data;
-}
-
-export async function getHotspots() {
-  const response = await api.get(
-    "/api/analytics/hotspots"
-  );
-
-  return response.data;
+  return await response.json();
 }

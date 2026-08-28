@@ -20,3 +20,6 @@ local.properties
 *.tflite
 backend/uploads/*
 !backend/uploads/.gitkeep
+web-dashboard/.env
+
+**/.env
