@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-
 import {
   MapContainer,
   TileLayer,
@@ -7,7 +6,6 @@ import {
   Popup,
   GeoJSON,
 } from "react-leaflet";
-
 import "leaflet/dist/leaflet.css";
 
 import type { MockCase } from "../data/mockCases";
@@ -31,42 +29,59 @@ type Hotspot = {
   risk: "High" | "Medium" | "Low";
 };
 
-type Outbreak = {
-  district: string;
-  crop: string;
-  disease: string;
-  case_count: number;
+// District coordinate fallbacks across Maharashtra
+const DISTRICT_COORDINATES: Record<string, [number, number]> = {
+  yavatmal: [20.3888, 78.1204],
+  nagpur: [21.1458, 79.0882],
+  amravati: [20.9374, 77.7796],
+  akola: [20.7002, 77.0082],
+  aurangabad: [19.8762, 75.3433],
+  chhatrapati_sambhajinagar: [19.8762, 75.3433],
+  nashik: [19.9975, 73.7898],
+  pune: [18.5204, 73.8567],
+  solapur: [17.6599, 75.9064],
+  kolhapur: [16.7050, 74.2433],
+  satara: [17.6805, 74.0183],
+  sangli: [16.8524, 74.5815],
+  nanded: [19.1383, 77.3210],
+  jalna: [19.8410, 75.8864],
+  beed: [18.9891, 75.7601],
+  latur: [18.4088, 76.5604],
+  osmanabad: [18.1853, 76.0419],
+  dharashiv: [18.1853, 76.0419],
+  buldhana: [20.5292, 76.1843],
+  wardha: [20.7453, 78.6022],
+  chandrapur: [19.9615, 79.2961],
+  gadchiroli: [20.1849, 79.9948],
+  bhandara: [21.1667, 79.6500],
+  gondia: [21.4600, 80.2000],
+  dhule: [20.9042, 74.7749],
+  jalgaon: [21.0077, 75.5626],
+  nandurbar: [21.3700, 74.2400],
+  ahmednagar: [19.0948, 74.7480],
+  ahilyanagar: [19.0948, 74.7480],
+  raigad: [18.5158, 73.1812],
+  ratnagiri: [16.9902, 73.3120],
+  sindhudurg: [16.1180, 73.6980],
+  thane: [19.2183, 72.9781],
+  palghar: [19.6967, 72.7653],
+  mumbai: [19.0760, 72.8777],
 };
 
-const OUTBREAK_THRESHOLD = 5;
-
-function getRiskRank(
-  risk: "High" | "Medium" | "Low"
-) {
+function getRiskRank(risk?: string) {
   if (risk === "High") return 3;
   if (risk === "Medium") return 2;
   return 1;
 }
 
-function getRiskColor(
-  risk: "High" | "Medium" | "Low"
-) {
-  if (risk === "High") {
-    return "#dc2626";
-  }
-
-  if (risk === "Medium") {
-    return "#f59e0b";
-  }
-
+function getRiskColor(risk?: string) {
+  if (risk === "High") return "#dc2626";
+  if (risk === "Medium") return "#f59e0b";
   return "#16a34a";
 }
 
-function StateHotspotMap({
-  cases,
-}: StateHotspotMapProps) {
-  const [districtData, setDistrictData] =
-    useState<any>(null);
+function StateHotspotMap({ cases }: StateHotspotMapProps) {
+  const [districtData, setDistrictData] = useState<any>(null);
 
   const [outbreaks, setOutbreaks] =
     useState<Outbreak[]>([]);
@@ -97,166 +112,89 @@ function StateHotspotMap({
     fetch("/maharashtra_districts.geojson")
       .then((response) => {
         if (!response.ok) {
-          throw new Error(
-            "Failed to load district GeoJSON."
-          );
+          throw new Error("Failed to load district GeoJSON");
         }
-
         return response.json();
       })
-      .then((data) => {
-        setDistrictData(data);
-      })
-      .catch((err) => {
-        console.error(
-          "GeoJSON error:",
-          err
-        );
-      });
+      .then((data) => setDistrictData(data))
+      .catch((error) => console.error("GeoJSON error:", error));
   }, []);
 
-  // =====================================================
-  // LOAD REAL ACTIVE OUTBREAKS FROM BACKEND
-  // =====================================================
-
-  useEffect(() => {
-    async function loadOutbreaks() {
-      try {
-        setError(null);
-
-        const data =
-          await getOutbreaks(
-            OUTBREAK_THRESHOLD
-          );
-
-        const normalized =
-          Array.isArray(data)
-            ? data
-            : data?.outbreaks ?? [];
-
-        setOutbreaks(normalized);
-      } catch (err) {
-        console.error(
-          "Failed to load outbreaks:",
-          err
-        );
-
-        setError(
-          "Unable to load outbreak data from backend."
-        );
-      }
-    }
-
-    loadOutbreaks();
-  }, [cases]);
-
-  // =====================================================
-  // EXISTING MAP HOTSPOTS
-  // =====================================================
-
   const hotspots = useMemo<Hotspot[]>(() => {
-    const grouped: Record<
-      string,
-      MockCase[]
-    > = {};
+    const grouped: Record<string, MockCase[]> = {};
 
     cases.forEach((item) => {
-      if (!grouped[item.district]) {
-        grouped[item.district] = [];
+      const districtKey = (item.district || "Yavatmal").trim();
+      if (!grouped[districtKey]) {
+        grouped[districtKey] = [];
       }
-
-      grouped[item.district].push(item);
+      grouped[districtKey].push(item);
     });
 
-    return Object.values(grouped).map(
-      (districtCases) => {
-        const firstCase =
-          districtCases[0];
+    return Object.entries(grouped)
+      .map(([districtName, districtCases]) => {
+        const firstCase: any = districtCases[0];
 
-        const highestRisk =
-          districtCases.reduce(
-            (highest, current) =>
-              getRiskRank(
-                current.severity
-              ) >
-              getRiskRank(
-                highest.severity
-              )
-                ? current
-                : highest,
-            firstCase
-          );
+        const highestRisk = districtCases.reduce((highest, current) => {
+          return getRiskRank(current.severity) > getRiskRank(highest.severity)
+            ? current
+            : highest;
+        }, firstCase);
 
         const diseases = [
-          ...new Set(
-            districtCases.map(
-              (item) => item.disease
-            )
-          ),
+          ...new Set(districtCases.map((item) => item.disease || "Unknown Disease")),
         ];
 
-        const crops = [
-          ...new Set(
-            districtCases.map(
-              (item) => item.crop
-            )
-          ),
-        ];
+        // Safely extract coordinates with district lookup fallback
+        const normalizedDistrict = districtName.toLowerCase().replace(/[\s_-]+/g, "");
+        const fallbackCoords =
+          DISTRICT_COORDINATES[normalizedDistrict] || [20.3888, 78.1204];
+
+        const lat = Number(
+          firstCase.gps_lat ??
+          firstCase.lat ??
+          firstCase.latitude ??
+          fallbackCoords[0]
+        );
+
+        const lng = Number(
+          firstCase.gps_long ??
+          firstCase.lng ??
+          firstCase.longitude ??
+          fallbackCoords[1]
+        );
 
         return {
-          district:
-            firstCase.district,
-
-          disease:
-            diseases.join(", "),
-
-          crop:
-            crops.join(", "),
-
-          latitude:
-            firstCase.latitude,
-
-          longitude:
-            firstCase.longitude,
-
-          cases:
-            districtCases.length,
-
-          risk:
-            highestRisk.severity,
+          district: districtName,
+          disease: diseases.join(", "),
+          latitude: isNaN(lat) ? fallbackCoords[0] : lat,
+          longitude: isNaN(lng) ? fallbackCoords[1] : lng,
+          cases: districtCases.length,
+          risk: (highestRisk?.severity as "High" | "Medium" | "Low") || "Medium",
         };
-      }
-    );
+      })
+      .filter((h) => !isNaN(h.latitude) && !isNaN(h.longitude));
   }, [cases]);
 
-  // =====================================================
-  // DISTRICT COLORS
-  // =====================================================
-
-  function getDistrictRisk(
-    districtName: string
-  ) {
-    const hotspot =
-      hotspots.find(
-        (item) =>
-          item.district.toLowerCase() ===
-          districtName.toLowerCase()
-      );
-
+  function getDistrictRisk(districtName: string) {
+    const hotspot = hotspots.find(
+      (item) => item.district.toLowerCase() === districtName.toLowerCase()
+    );
     return hotspot?.risk ?? "Low";
   }
 
-  function getDistrictStyle(
-    feature?: any
-  ) {
-    const districtName =
-      feature?.properties?.district ??
-      "";
+  function getDistrictStyle(feature?: any) {
+    const districtName = feature?.properties?.district ?? "";
+    const risk = getDistrictRisk(districtName);
 
-    const risk =
-      getDistrictRisk(
-        districtName
-      );
+    let fillColor = "#e2e8f0";
+    if (risk === "High") {
+      fillColor = "#ef4444";
+    } else if (risk === "Medium") {
+      fillColor = "#f59e0b";
+    } else {
+      fillColor = "#22c55e";
+    }
 
     return {
       color: "#475569",
@@ -268,164 +206,35 @@ function StateHotspotMap({
     };
   }
 
-  // =====================================================
-  // OPEN BROADCAST MODAL
-  // =====================================================
+  const pendingCases = cases.filter(
+    (item) => item.status === "Pending Expert"
+  ).length;
 
-  function openBroadcast(
-    outbreak: Outbreak
-  ) {
-    setSelectedOutbreak(
-      outbreak
-    );
-
-    setOfficerMsg(
-      `तात्काळ सूचना: ${outbreak.district} जिल्ह्यात ${outbreak.crop} पिकामध्ये ${outbreak.disease} संदर्भात प्रादुर्भाव आढळला आहे.`
-    );
-
-    setBanner(null);
-    setError(null);
-    setIsModalOpen(true);
-  }
-
-  // =====================================================
-  // SEND BROADCAST THROUGH BACKEND
-  // =====================================================
-
-  async function handleBroadcast() {
-    if (!selectedOutbreak) {
-      return;
-    }
-
-    if (!officerMsg.trim()) {
-      setError(
-        "Please enter an advisory message."
-      );
-      return;
-    }
-
-    setIsBroadcasting(true);
-    setBanner(null);
-    setError(null);
-
-    try {
-      const result =
-        await sendBroadcastAdvisory({
-          district:
-            selectedOutbreak.district,
-
-          crop:
-            selectedOutbreak.crop,
-
-          disease:
-            selectedOutbreak.disease,
-
-          custom_message:
-            officerMsg.trim(),
-        });
-
-      setIsModalOpen(false);
-
-      setBanner(
-        `✅ Advisory successfully broadcasted to ${
-          result?.total_farmers_notified ?? 0
-        } farmers.`
-      );
-
-      setSelectedOutbreak(null);
-    } catch (err) {
-      console.error(
-        "Broadcast failed:",
-        err
-      );
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Broadcast delivery failed."
-      );
-    } finally {
-      setIsBroadcasting(false);
-    }
-  }
-
-  // =====================================================
-  // SUMMARY
-  // =====================================================
-
-  const totalCases =
-    cases.length;
-
-  const pendingCases =
-    cases.filter(
-      (item) =>
-        item.status ===
-        "Pending Expert"
-    ).length;
-
-  const highRiskCases =
-    cases.filter(
-      (item) =>
-        item.severity === "High"
-    ).length;
-
-  const mediumRiskCases =
-    cases.filter(
-      (item) =>
-        item.severity === "Medium"
-    ).length;
-
-  const lowRiskCases =
-    cases.filter(
-      (item) =>
-        item.severity === "Low"
-    ).length;
+  const highRiskCases = cases.filter((item) => item.severity === "High").length;
+  const mediumRiskCases = cases.filter((item) => item.severity === "Medium").length;
+  const lowRiskCases = cases.filter((item) => item.severity === "Low").length;
 
   return (
     <div className="map-page">
-
-      {/* HEADER */}
-
       <div className="map-header">
-
         <div>
-          <h2>
-            State Outbreak Intelligence
-          </h2>
-
-          <p>
-            Monitor district-level crop
-            disease hotspots across
-            Maharashtra.
-          </p>
+          <h2>State Outbreak Intelligence</h2>
+          <p>Monitor district-level crop disease hotspots across Maharashtra.</p>
         </div>
 
         <div className="map-summary">
-
           <div>
             <span>Total Cases</span>
-
-            <strong>
-              {totalCases}
-            </strong>
+            <strong>{cases.length}</strong>
           </div>
-
           <div>
             <span>Pending Cases</span>
-
-            <strong>
-              {pendingCases}
-            </strong>
+            <strong>{pendingCases}</strong>
           </div>
-
           <div>
             <span>District Hotspots</span>
-
-            <strong>
-              {hotspots.length}
-            </strong>
+            <strong>{hotspots.length}</strong>
           </div>
-
         </div>
 
       </div>
@@ -467,19 +276,15 @@ function StateHotspotMap({
       ================================================= */}
 
       <div className="map-card">
-
         <MapContainer
-          center={[
-            19.7515,
-            75.7139,
-          ]}
+          center={[19.7515, 75.7139]}
           zoom={7}
           scrollWheelZoom={true}
           className="maharashtra-map"
+          style={{ height: "550px", width: "100%", borderRadius: "8px" }}
         >
-
           <TileLayer
-            attribution="&copy; OpenStreetMap contributors"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
@@ -489,107 +294,47 @@ function StateHotspotMap({
             <GeoJSON
               data={districtData}
               style={getDistrictStyle}
-              onEachFeature={(
-                feature,
-                layer
-              ) => {
-
+              onEachFeature={(feature, layer) => {
                 const districtName =
-                  feature?.properties
-                    ?.district ??
-                  "Unknown District";
-
-                const hotspot =
-                  hotspots.find(
-                    (item) =>
-                      item.district
-                        .toLowerCase() ===
-                      districtName
-                        .toLowerCase()
-                  );
+                  feature?.properties?.district ?? "Unknown District";
+                const hotspot = hotspots.find(
+                  (item) =>
+                    item.district.toLowerCase() === districtName.toLowerCase()
+                );
 
                 layer.bindPopup(`
-                  <strong>
-                    ${districtName}
-                  </strong>
-                  <br />
-                  Risk:
-                  ${hotspot?.risk ?? "Low"}
-                  <br />
-                  Reported Cases:
-                  ${hotspot?.cases ?? 0}
+                  <strong>${districtName}</strong><br />
+                  Risk: ${hotspot?.risk ?? "Low"}<br />
+                  Reported Cases: ${hotspot?.cases ?? 0}
                 `);
 
-                layer.bindTooltip(
-                  districtName,
-                  {
-                    sticky: true,
-                  }
-                );
+                layer.bindTooltip(districtName, { sticky: true });
               }}
             />
           )}
 
-          {/* HOTSPOT MARKERS */}
-
-          {hotspots.map(
-            (hotspot) => (
-              <CircleMarker
-                key={
-                  hotspot.district
-                }
-                center={[
-                  hotspot.latitude,
-                  hotspot.longitude,
-                ]}
-                radius={10}
-                pathOptions={{
-                  color:
-                    getRiskColor(
-                      hotspot.risk
-                    ),
-
-                  fillColor:
-                    getRiskColor(
-                      hotspot.risk
-                    ),
-
-                  fillOpacity: 0.9,
-                }}
-              >
-
-                <Popup>
-
-                  <strong>
-                    {hotspot.district}
-                  </strong>
-
-                  <br />
-
-                  Disease:
-                  {` ${hotspot.disease}`}
-
-                  <br />
-
-                  Crop:
-                  {` ${hotspot.crop}`}
-
-                  <br />
-
-                  Cases:
-                  {` ${hotspot.cases}`}
-
-                  <br />
-
-                  Risk:
-                  {` ${hotspot.risk}`}
-
-                </Popup>
-
-              </CircleMarker>
-            )
-          )}
-
+          {hotspots.map((hotspot) => (
+            <CircleMarker
+              key={hotspot.district}
+              center={[hotspot.latitude, hotspot.longitude]}
+              radius={12}
+              pathOptions={{
+                color: getRiskColor(hotspot.risk),
+                fillColor: getRiskColor(hotspot.risk),
+                fillOpacity: 0.9,
+              }}
+            >
+              <Popup>
+                <strong>{hotspot.district}</strong>
+                <br />
+                Disease: {hotspot.disease}
+                <br />
+                Cases: {hotspot.cases}
+                <br />
+                Risk: {hotspot.risk}
+              </Popup>
+            </CircleMarker>
+          ))}
         </MapContainer>
 
       </div>
@@ -706,22 +451,18 @@ function StateHotspotMap({
       ================================================= */}
 
       <div className="risk-legend">
-
         <div>
           <span className="legend-dot high-dot"></span>
           High Risk ({highRiskCases})
         </div>
-
         <div>
           <span className="legend-dot medium-dot"></span>
           Medium Risk ({mediumRiskCases})
         </div>
-
         <div>
           <span className="legend-dot low-dot"></span>
           Low Risk ({lowRiskCases})
         </div>
-
       </div>
 
       {/* =================================================

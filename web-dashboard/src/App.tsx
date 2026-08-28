@@ -1,19 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import ResolvedCasesPage from "./pages/ResolvedCasesPage";
-
-import ExpertTriagePage, {
-  type Case,
-} from "./pages/ExpertTriagePage";
-
+import ExpertTriagePage, { type Case } from "./pages/ExpertTriagePage";
 import CaseDetailPage from "./pages/CaseDetailPage";
 import StateHotspotMap from "./pages/StateHotspotMap";
 import TrendMetrics from "./components/TrendMetrics";
-
-import {
-  mockCases,
-  type MockCase,
-} from "./data/mockCases";
+import { type MockCase } from "./data/mockCases";
 
 import { getCases } from "./api/caseApi";
 
@@ -22,386 +14,208 @@ type Page =
   | "map"
   | "analytics";
 
+const API_BASE_URL = "http://localhost:8000/api";
+
 function App() {
-  const [activePage, setActivePage] =
-    useState<Page>("triage");
+  const [activePage, setActivePage] = useState<Page>("triage");
+  const [selectedCase, setSelectedCase] = useState<Case | null>(null);
+  const [showResolvedCases, setShowResolvedCases] = useState(false);
+  
+  // Live backend cases state
+  const [liveCases, setLiveCases] = useState<MockCase[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [selectedCase, setSelectedCase] =
-    useState<Case | null>(null);
-
-  const [resolvedCaseIds, setResolvedCaseIds] =
-    useState<number[]>([]);
-
-  const [resolvedDetails, setResolvedDetails] =
-    useState<
-      Record<
-        number,
-        {
-          resolution_date: string;
-          expert_diagnosis: string;
-          prescription: string;
-        }
-      >
-    >({});
-
-  const [showResolvedCases, setShowResolvedCases] =
-    useState(false);
-
-  // =====================================================
-  // LIVE BACKEND CASES
-  // =====================================================
-
-  const [liveCases, setLiveCases] =
-    useState<MockCase[]>([]);
-
-  const [casesLoading, setCasesLoading] =
-    useState(true);
-
-  useEffect(() => {
-    async function loadCases() {
-      try {
-        setCasesLoading(true);
-
-        const data =
-          await getCases();
-
-        /*
-         * Backend currently returns:
-         * { status: "success", cases: [] }
-         *
-         * If cases are available, use them.
-         * If backend is empty, keep the existing
-         * mock dashboard data so the UI doesn't go blank.
-         */
-
-        if (
-          Array.isArray(data) &&
-          data.length > 0
-        ) {
-          setLiveCases(
-            data as MockCase[]
-          );
-        } else {
-          setLiveCases(mockCases);
-        }
-
-      } catch (error) {
-        console.error(
-          "Failed to load live cases:",
-          error
-        );
-
-        // Keep existing dashboard usable
-        setLiveCases(mockCases);
-
-      } finally {
-        setCasesLoading(false);
+  // =========================================
+  // FETCH CASES FROM BACKEND
+  // =========================================
+  const fetchCases = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/cases`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    }
+      const data = await response.json();
 
-    loadCases();
+      // Normalize backend schema to match frontend MockCase / Case interface
+      const formattedCases: MockCase[] = data.map((item: any) => ({
+        ...item,
+        case_id: item.id ?? item.case_id,
+        id: item.id ?? item.case_id,
+        farmer_name: item.farmer_name || "Unknown Farmer",
+        crop: item.crop || "Unknown Crop",
+        disease: (item.disease || "Unknown").replace(/_/g, " "),
+        confidence: item.confidence ? Math.round(item.confidence * 100) : 0,
+        district: item.district || "Maharashtra",
+        severity: item.severity || "Medium",
+        status: item.status || "Pending Expert",
+        gps_lat: item.gps_lat ?? 20.3888,
+        gps_long: item.gps_long ?? 78.1204,
+        image_url: item.image_url || "/uploads/sample_leaf.jpg",
+        date: item.created_at ? new Date(item.created_at).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+        resolution_date: item.resolved_at ? new Date(item.resolved_at).toISOString().split("T")[0] : undefined,
+        expert_diagnosis: item.expert_diagnosis || undefined,
+        prescription: item.prescription || undefined,
+      }));
+
+      setLiveCases(formattedCases);
+    } catch (err) {
+      console.error("[PikRakshak] Failed to fetch live cases from backend:", err);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  // =====================================================
-  // PENDING CASES
-  // =====================================================
+  // Poll backend on mount & every 4 seconds for real-time mobile scan updates
+  useEffect(() => {
+    fetchCases();
+    const interval = setInterval(fetchCases, 4000);
+    return () => clearInterval(interval);
+  }, [fetchCases]);
 
+  // =========================================
+  // DERIVED LISTS
+  // =========================================
   const pendingCases = useMemo(() => {
-    return liveCases.filter(
-      (item) =>
-        item.status ===
-          "Pending Expert" &&
-        !resolvedCaseIds.includes(
-          item.case_id
-        )
+    return (liveCases as unknown as Case[]).filter(
+      (item: any) => item.status === "Pending Expert"
     );
-  }, [
-    liveCases,
-    resolvedCaseIds,
-  ]);
+  }, [liveCases]);
 
-  // =====================================================
-  // CURRENT LIVE DATASET
-  // =====================================================
+  const currentCases = useMemo<MockCase[]>(() => {
+    return liveCases;
+  }, [liveCases]);
 
-  const currentCases = useMemo<MockCase[]>(
-    () => {
-      return liveCases.map((item) => {
-
-        if (
-          !resolvedCaseIds.includes(
-            item.case_id
-          )
-        ) {
-          return item;
-        }
-
-        const savedDetails =
-          resolvedDetails[
-            item.case_id
-          ];
-
-        return {
-          ...item,
-
-          status: "Resolved",
-
-          resolution_date:
-            savedDetails?.resolution_date ??
-            item.resolution_date ??
-            new Date()
-              .toISOString()
-              .split("T")[0],
-
-          expert_diagnosis:
-            savedDetails?.expert_diagnosis ??
-            item.expert_diagnosis ??
-            "No diagnosis recorded.",
-
-          prescription:
-            savedDetails?.prescription ??
-            item.prescription ??
-            "No prescription recorded.",
-        };
-      });
-    },
-    [
-      liveCases,
-      resolvedCaseIds,
-      resolvedDetails,
-    ]
-  );
-
-  // =====================================================
-  // RESOLVE CASE
-  // =====================================================
-
-  const handleResolveCase = (
+  // =========================================
+  // RESOLVE CASE (PERSIST TO SQLITE BACKEND)
+  // =========================================
+  const handleResolveCase = async (
     caseId: number,
     expertDiagnosis: string,
     prescription: string
   ) => {
-    const today =
-      new Date()
-        .toISOString()
-        .split("T")[0];
-
-    setResolvedDetails(
-      (previous) => ({
-        ...previous,
-
-        [caseId]: {
-          resolution_date: today,
-          expert_diagnosis:
-            expertDiagnosis,
-          prescription,
+    try {
+      const response = await fetch(`${API_BASE_URL}/cases/${caseId}/resolve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      })
-    );
+        body: JSON.stringify({
+          expert_diagnosis: expertDiagnosis,
+          prescription: prescription,
+        }),
+      });
 
-    setResolvedCaseIds(
-      (previous) => {
-        if (
-          previous.includes(caseId)
-        ) {
-          return previous;
-        }
-
-        return [
-          ...previous,
-          caseId,
-        ];
+      if (!response.ok) {
+        throw new Error(`Failed to resolve case ID: ${caseId}`);
       }
-    );
+
+      // Refresh case list immediately
+      await fetchCases();
+    } catch (error) {
+      console.error("[PikRakshak] Resolve error:", error);
+    }
 
     setSelectedCase(null);
   };
 
-  // =====================================================
-  // SHOW RESOLVED CASES
-  // =====================================================
-
+  // =========================================
+  // RESOLVED CASES PAGE
+  // =========================================
   if (showResolvedCases) {
     return (
       <ResolvedCasesPage
         cases={currentCases}
-        onBack={() =>
-          setShowResolvedCases(false)
-        }
+        onBack={() => setShowResolvedCases(false)}
       />
     );
   }
 
-  // =====================================================
-  // CASE DETAIL
-  // =====================================================
-
+  // =========================================
+  // CASE DETAIL PAGE
+  // =========================================
   if (selectedCase) {
     return (
       <CaseDetailPage
         caseData={selectedCase}
-        onBack={() =>
-          setSelectedCase(null)
-        }
-        onResolve={
-          handleResolveCase
-        }
+        onBack={() => setSelectedCase(null)}
+        onResolve={handleResolveCase}
       />
     );
   }
 
   // =====================================================
   // MAIN DASHBOARD
-  // =====================================================
-
+  // =========================================
   return (
     <div className="app">
-
       {/* HEADER */}
-
       <header className="topbar">
-
         <div className="brand-section">
-
-          <div className="brand-mark">
-            PR
-          </div>
-
+          <div className="brand-mark">PR</div>
           <div>
-            <h1>
-              PikRakshak
-            </h1>
-
-            <p>
-              Government Crop Health
-              Monitoring Portal
-            </p>
+            <h1>PikRakshak</h1>
+            <p>Government Crop Health Monitoring Portal</p>
           </div>
-
         </div>
 
         <div className="portal-label">
-
-          <span className="portal-badge">
-            GOVERNMENT PORTAL
-          </span>
-
-          <span className="portal-subtitle">
-            KVK / Agriculture Department
-          </span>
-
+          <span className="portal-badge">GOVERNMENT PORTAL</span>
+          <span className="portal-subtitle">KVK / Agriculture Department</span>
         </div>
 
         <nav className="navigation">
-
           <button
-            className={
-              activePage === "triage"
-                ? "nav-button active"
-                : "nav-button"
-            }
-            onClick={() =>
-              setActivePage("triage")
-            }
+            className={activePage === "triage" ? "nav-button active" : "nav-button"}
+            onClick={() => setActivePage("triage")}
           >
             Expert Triage
           </button>
 
           <button
-            className={
-              activePage === "map"
-                ? "nav-button active"
-                : "nav-button"
-            }
-            onClick={() =>
-              setActivePage("map")
-            }
+            className={activePage === "map" ? "nav-button active" : "nav-button"}
+            onClick={() => setActivePage("map")}
           >
             State Outbreak Map
           </button>
 
           <button
-            className={
-              activePage === "analytics"
-                ? "nav-button active"
-                : "nav-button"
-            }
-            onClick={() =>
-              setActivePage(
-                "analytics"
-              )
-            }
+            className={activePage === "analytics" ? "nav-button active" : "nav-button"}
+            onClick={() => setActivePage("analytics")}
           >
             Analytics
           </button>
-
         </nav>
-
       </header>
 
       {/* CONTENT */}
-
       <main>
-
-        {/* CASE LOADING */}
-
-        {casesLoading && (
-          <div
-            style={{
-              padding: "10px 20px",
-              fontSize: "13px",
-              color: "#64748b",
-            }}
-          >
-            Loading latest case data...
+        {isLoading && liveCases.length === 0 ? (
+          <div style={{ padding: "2rem", textAlign: "center", color: "#666" }}>
+            Loading live case records from PikRakshak backend...
           </div>
+        ) : (
+          <>
+            {/* EXPERT TRIAGE */}
+            {activePage === "triage" && (
+              <ExpertTriagePage
+                cases={pendingCases}
+                onSelectCase={(caseData) => setSelectedCase(caseData)}
+              />
+            )}
+
+            {/* MAP */}
+            {activePage === "map" && <StateHotspotMap cases={currentCases} />}
+
+            {/* ANALYTICS */}
+            {activePage === "analytics" && (
+              <TrendMetrics
+                cases={currentCases}
+                onResolvedClick={() => setShowResolvedCases(true)}
+              />
+            )}
+          </>
         )}
-
-        {/* =================================================
-            EXPERT TRIAGE
-        ================================================= */}
-
-        {activePage === "triage" && (
-          <ExpertTriagePage
-            cases={pendingCases}
-            onSelectCase={(
-              caseData
-            ) =>
-              setSelectedCase(
-                caseData
-              )
-            }
-          />
-        )}
-
-        {/* =================================================
-            MAP
-        ================================================= */}
-
-        {activePage === "map" && (
-          <StateHotspotMap
-            cases={currentCases}
-          />
-        )}
-
-        {/* =================================================
-            ANALYTICS
-        ================================================= */}
-
-        {activePage ===
-          "analytics" && (
-          <TrendMetrics
-            cases={currentCases}
-            onResolvedClick={() =>
-              setShowResolvedCases(
-                true
-              )
-            }
-          />
-        )}
-
       </main>
-
     </div>
   );
 }
