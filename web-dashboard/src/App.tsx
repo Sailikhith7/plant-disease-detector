@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import ResolvedCasesPage from "./pages/ResolvedCasesPage";
 
@@ -15,7 +15,12 @@ import {
   type MockCase,
 } from "./data/mockCases";
 
-type Page = "triage" | "map" | "analytics";
+import { getCases } from "./api/caseApi";
+
+type Page =
+  | "triage"
+  | "map"
+  | "analytics";
 
 function App() {
   const [activePage, setActivePage] =
@@ -42,59 +47,134 @@ function App() {
   const [showResolvedCases, setShowResolvedCases] =
     useState(false);
 
-  // =========================================
-  // PENDING EXPERT CASES
-  // =========================================
+  // =====================================================
+  // LIVE BACKEND CASES
+  // =====================================================
+
+  const [liveCases, setLiveCases] =
+    useState<MockCase[]>([]);
+
+  const [casesLoading, setCasesLoading] =
+    useState(true);
+
+  useEffect(() => {
+    async function loadCases() {
+      try {
+        setCasesLoading(true);
+
+        const data =
+          await getCases();
+
+        /*
+         * Backend currently returns:
+         * { status: "success", cases: [] }
+         *
+         * If cases are available, use them.
+         * If backend is empty, keep the existing
+         * mock dashboard data so the UI doesn't go blank.
+         */
+
+        if (
+          Array.isArray(data) &&
+          data.length > 0
+        ) {
+          setLiveCases(
+            data as MockCase[]
+          );
+        } else {
+          setLiveCases(mockCases);
+        }
+
+      } catch (error) {
+        console.error(
+          "Failed to load live cases:",
+          error
+        );
+
+        // Keep existing dashboard usable
+        setLiveCases(mockCases);
+
+      } finally {
+        setCasesLoading(false);
+      }
+    }
+
+    loadCases();
+  }, []);
+
+  // =====================================================
+  // PENDING CASES
+  // =====================================================
 
   const pendingCases = useMemo(() => {
-    return mockCases.filter(
+    return liveCases.filter(
       (item) =>
-        item.status === "Pending Expert" &&
-        !resolvedCaseIds.includes(item.case_id)
+        item.status ===
+          "Pending Expert" &&
+        !resolvedCaseIds.includes(
+          item.case_id
+        )
     );
-  }, [resolvedCaseIds]);
-
-  // =========================================
-  // CURRENT LIVE DATASET
-  // =========================================
-
-  const currentCases = useMemo<MockCase[]>(() => {
-    return mockCases.map((item) => {
-      if (!resolvedCaseIds.includes(item.case_id)) {
-        return item;
-      }
-
-      const savedDetails =
-        resolvedDetails[item.case_id];
-
-      return {
-        ...item,
-        status: "Resolved",
-
-        resolution_date:
-          savedDetails?.resolution_date ??
-          item.resolution_date ??
-          new Date().toISOString().split("T")[0],
-
-        expert_diagnosis:
-          savedDetails?.expert_diagnosis ??
-          item.expert_diagnosis ??
-          "No diagnosis recorded.",
-
-        prescription:
-          savedDetails?.prescription ??
-          item.prescription ??
-          "No prescription recorded.",
-      };
-    });
   }, [
+    liveCases,
     resolvedCaseIds,
-    resolvedDetails,
   ]);
 
-  // =========================================
+  // =====================================================
+  // CURRENT LIVE DATASET
+  // =====================================================
+
+  const currentCases = useMemo<MockCase[]>(
+    () => {
+      return liveCases.map((item) => {
+
+        if (
+          !resolvedCaseIds.includes(
+            item.case_id
+          )
+        ) {
+          return item;
+        }
+
+        const savedDetails =
+          resolvedDetails[
+            item.case_id
+          ];
+
+        return {
+          ...item,
+
+          status: "Resolved",
+
+          resolution_date:
+            savedDetails?.resolution_date ??
+            item.resolution_date ??
+            new Date()
+              .toISOString()
+              .split("T")[0],
+
+          expert_diagnosis:
+            savedDetails?.expert_diagnosis ??
+            item.expert_diagnosis ??
+            "No diagnosis recorded.",
+
+          prescription:
+            savedDetails?.prescription ??
+            item.prescription ??
+            "No prescription recorded.",
+        };
+      });
+    },
+    [
+      liveCases,
+      resolvedCaseIds,
+      resolvedDetails,
+    ]
+  );
+
+  // =====================================================
   // RESOLVE CASE
-  // =========================================
+  // =====================================================
 
   const handleResolveCase = (
     caseId: number,
@@ -102,32 +182,44 @@ function App() {
     prescription: string
   ) => {
     const today =
-      new Date().toISOString().split("T")[0];
+      new Date()
+        .toISOString()
+        .split("T")[0];
 
-    setResolvedDetails((previous) => ({
-      ...previous,
+    setResolvedDetails(
+      (previous) => ({
+        ...previous,
 
-      [caseId]: {
-        resolution_date: today,
-        expert_diagnosis: expertDiagnosis,
-        prescription,
-      },
-    }));
+        [caseId]: {
+          resolution_date: today,
+          expert_diagnosis:
+            expertDiagnosis,
+          prescription,
+        },
+      })
+    );
 
-    setResolvedCaseIds((previous) => {
-      if (previous.includes(caseId)) {
-        return previous;
+    setResolvedCaseIds(
+      (previous) => {
+        if (
+          previous.includes(caseId)
+        ) {
+          return previous;
+        }
+
+        return [
+          ...previous,
+          caseId,
+        ];
       }
-
-      return [...previous, caseId];
-    });
+    );
 
     setSelectedCase(null);
   };
 
-  // =========================================
-  // RESOLVED CASES PAGE
-  // =========================================
+  // =====================================================
+  // SHOW RESOLVED CASES
+  // =====================================================
 
   if (showResolvedCases) {
     return (
@@ -140,9 +232,9 @@ function App() {
     );
   }
 
-  // =========================================
-  // CASE DETAIL PAGE
-  // =========================================
+  // =====================================================
+  // CASE DETAIL
+  // =====================================================
 
   if (selectedCase) {
     return (
@@ -151,14 +243,16 @@ function App() {
         onBack={() =>
           setSelectedCase(null)
         }
-        onResolve={handleResolveCase}
+        onResolve={
+          handleResolveCase
+        }
       />
     );
   }
 
-  // =========================================
+  // =====================================================
   // MAIN DASHBOARD
-  // =========================================
+  // =====================================================
 
   return (
     <div className="app">
@@ -174,10 +268,13 @@ function App() {
           </div>
 
           <div>
-            <h1>PikRakshak</h1>
+            <h1>
+              PikRakshak
+            </h1>
 
             <p>
-              Government Crop Health Monitoring Portal
+              Government Crop Health
+              Monitoring Portal
             </p>
           </div>
 
@@ -230,7 +327,9 @@ function App() {
                 : "nav-button"
             }
             onClick={() =>
-              setActivePage("analytics")
+              setActivePage(
+                "analytics"
+              )
             }
           >
             Analytics
@@ -244,18 +343,40 @@ function App() {
 
       <main>
 
-        {/* EXPERT TRIAGE */}
+        {/* CASE LOADING */}
+
+        {casesLoading && (
+          <div
+            style={{
+              padding: "10px 20px",
+              fontSize: "13px",
+              color: "#64748b",
+            }}
+          >
+            Loading latest case data...
+          </div>
+        )}
+
+        {/* =================================================
+            EXPERT TRIAGE
+        ================================================= */}
 
         {activePage === "triage" && (
           <ExpertTriagePage
             cases={pendingCases}
-            onSelectCase={(caseData) =>
-              setSelectedCase(caseData)
+            onSelectCase={(
+              caseData
+            ) =>
+              setSelectedCase(
+                caseData
+              )
             }
           />
         )}
 
-        {/* MAP */}
+        {/* =================================================
+            MAP
+        ================================================= */}
 
         {activePage === "map" && (
           <StateHotspotMap
@@ -263,13 +384,18 @@ function App() {
           />
         )}
 
-        {/* ANALYTICS */}
+        {/* =================================================
+            ANALYTICS
+        ================================================= */}
 
-        {activePage === "analytics" && (
+        {activePage ===
+          "analytics" && (
           <TrendMetrics
             cases={currentCases}
             onResolvedClick={() =>
-              setShowResolvedCases(true)
+              setShowResolvedCases(
+                true
+              )
             }
           />
         )}
