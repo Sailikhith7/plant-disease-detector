@@ -1,3 +1,21 @@
+# Python virtual environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment/secrets
+.env
+
+# Node
+node_modules/
+
+# Build files
+dist/
+build/
 # Python & Virtualenv
 __pycache__/
 *.py[cod]

@@ -1,54 +1,93 @@
-import datetime
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from backend.database import get_db, Case
+﻿from fastapi import APIRouter
+import sqlite3
 
-router = APIRouter(tags=["Cases"])
+router = APIRouter(prefix="/cases", tags=["Cases"])
 
-class ResolveCaseRequest(BaseModel):
-    expert_diagnosis: str
-    prescription: str
+DB_PATH = "data/peekrakshak.db"
 
-@router.get("/cases")
-def get_cases(
-    status: Optional[str] = Query(None),
-    district: Optional[str] = Query(None),
-    crop: Optional[str] = Query(None),
-    severity: Optional[str] = Query(None),
-    db: Session = Depends(get_db)
-):
-    query = db.query(Case)
-    if status:
-        query = query.filter(Case.status == status)
-    if district:
-        query = query.filter(Case.district.ilike(f"%{district}%"))
-    if crop:
-        query = query.filter(Case.crop.ilike(f"%{crop}%"))
-    if severity:
-        query = query.filter(Case.severity == severity)
-    
-    return query.order_by(Case.created_at.desc()).all()
 
-@router.get("/cases/{case_id}")
-def get_case_detail(case_id: int, db: Session = Depends(get_db)):
-    case_obj = db.query(Case).filter(Case.id == case_id).first()
-    if not case_obj:
-        raise HTTPException(status_code=404, detail="Case not found")
-    return case_obj
+@router.get("/")
+def list_cases():
 
-@router.post("/cases/{case_id}/resolve")
-def resolve_case(case_id: int, payload: ResolveCaseRequest, db: Session = Depends(get_db)):
-    case_obj = db.query(Case).filter(Case.id == case_id).first()
-    if not case_obj:
-        raise HTTPException(status_code=404, detail="Case not found")
-    
-    case_obj.status = "Resolved"
-    case_obj.expert_diagnosis = payload.expert_diagnosis
-    case_obj.prescription = payload.prescription
-    case_obj.resolved_at = datetime.datetime.utcnow()
-    
-    db.commit()
-    db.refresh(case_obj)
-    return {"status": "success", "message": "Case resolved successfully", "case": case_obj}
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            c.case_id,
+            c.farmer_id,
+            f.full_name AS farmer_name,
+            c.district,
+            c.crop,
+            c.disease_detected,
+            c.confidence,
+            c.status,
+            c.created_at
+        FROM cases c
+        LEFT JOIN farmers f
+            ON c.farmer_id = f.farmer_id
+        ORDER BY c.created_at DESC
+    """)
+
+    rows = cursor.fetchall()
+
+    conn.close()
+
+    cases = []
+
+    for row in rows:
+
+        confidence = row["confidence"]
+
+        # Convert 0.91 → 91
+        confidence_percent = round(confidence * 100)
+
+        # Severity
+        if confidence < 0.50:
+            severity = "High"
+        elif confidence < 0.70:
+            severity = "Medium"
+        else:
+            severity = "Low"
+
+        # Status
+        if row["status"].lower() in [
+            "open",
+            "pending_expert"
+        ]:
+            status = "Pending Expert"
+        else:
+            status = "Resolved"
+
+        cases.append({
+            "case_id": row["case_id"],
+
+            "farmer_id": row["farmer_id"],
+
+            "farmer_name": (
+                row["farmer_name"]
+                if row["farmer_name"]
+                else "Unknown Farmer"
+            ),
+
+            "crop": row["crop"],
+
+            "disease": row["disease_detected"],
+
+            "confidence": confidence_percent,
+
+            "district": row["district"],
+
+            "severity": severity,
+
+            "status": status,
+
+            "created_at": row["created_at"],
+        })
+
+    return {
+        "status": "success",
+        "cases": cases
+    }
