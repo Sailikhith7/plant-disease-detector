@@ -3,8 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from backend.services.alert_dispatcher import engine
 
-router = APIRouter(prefix="/api/alerts", tags=["Outbreak Advisory Alerts"])
-
+router = APIRouter(tags=["Outbreak Advisory Alerts"])
 class OfficerBroadcastRequest(BaseModel):
     district: str
     crop: str

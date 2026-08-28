@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 # Routers
-from backend.routers import analytics, cases, inputs, alerts
+from backend.routers import analytics, cases, inputs, alerts, farmers
 
 app = FastAPI(
     title="PikRakshak - Plant Disease Detection & Advisory API",
@@ -33,6 +33,7 @@ app.include_router(inputs.router, prefix="/api", tags=["Prediction & Inputs"])
 app.include_router(cases.router, prefix="/api", tags=["Cases"])
 app.include_router(analytics.router, prefix="/api", tags=["Analytics"])
 app.include_router(alerts.router, prefix="/api/alerts", tags=["Alerts & Outbreaks"])
+app.include_router(farmers.router)
 
 # =========================================================
 # Basic & Dashboard Endpoints
