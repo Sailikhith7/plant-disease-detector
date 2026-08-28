@@ -1,66 +1,112 @@
-import axios from "axios";
+const API_BASE_URL = "http://localhost:8000";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-});
+// =========================================================
+// GET CASES
+// Backend:
+// GET /api/cases/
+// =========================================================
 
-export type CaseStatus =
-  | "pending"
-  | "Pending Expert"
-  | "resolved";
+export async function getCases() {
+  const response = await fetch(
+    `${API_BASE_URL}/api/cases/`
+  );
 
-export type CaseItem = {
-  case_id: number;
-  farmer_name?: string;
-  crop: string;
-  disease: string;
-  confidence: number;
-  district?: string;
-  latitude?: number;
-  longitude?: number;
-  severity?: "High" | "Medium" | "Low";
-  status: CaseStatus;
-};
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch cases (${response.status})`
+    );
+  }
 
-export async function getPendingCases() {
-  const response = await api.get("/api/cases", {
-    params: {
-      status: "Pending Expert",
-    },
-  });
+  const data = await response.json();
 
-  return response.data;
+  return data?.cases ?? [];
 }
 
-export async function getCase(caseId: number) {
-  const response = await api.get(`/api/cases/${caseId}`);
 
-  return response.data;
+// =========================================================
+// GET ANALYTICS
+// Backend:
+// GET /api/analytics/
+// =========================================================
+
+export async function getAnalytics() {
+  const response = await fetch(
+    `${API_BASE_URL}/api/analytics/`
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch analytics (${response.status})`
+    );
+  }
+
+  const data = await response.json();
+
+  return data?.metrics ?? {};
 }
 
-export async function resolveCase(
-  caseId: number,
-  data: {
-    expert_diagnosis: string;
-    prescription: string;
+
+// =========================================================
+// GET ACTIVE OUTBREAKS
+// Backend:
+// GET /api/alerts/outbreaks?threshold=5
+// =========================================================
+
+export async function getOutbreaks(
+  threshold = 5
+) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/alerts/outbreaks?threshold=${threshold}`
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch outbreaks (${response.status})`
+    );
+  }
+
+  return await response.json();
+}
+
+
+// =========================================================
+// SEND BROADCAST ADVISORY
+// Backend:
+// POST /api/alerts/broadcast
+// =========================================================
+
+export async function sendBroadcastAdvisory(
+  payload: {
+    district: string;
+    crop: string;
+    disease: string;
+    custom_message: string;
   }
 ) {
-  const response = await api.patch(
-    `/api/cases/${caseId}`,
-    data
+  const response = await fetch(
+    `${API_BASE_URL}/api/alerts/broadcast`,
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type":
+          "application/json",
+      },
+
+      body: JSON.stringify(payload),
+    }
   );
 
-  return response.data;
-}
+  const data = await response.json();
 
-export async function getHotspots() {
-  const response = await api.get(
-    "/api/analytics/hotspots"
-  );
+  if (!response.ok) {
+    throw new Error(
+      data?.detail ||
+        data?.message ||
+        "Broadcast request failed."
+    );
+  }
 
-  return response.data;
+  return data;
 }

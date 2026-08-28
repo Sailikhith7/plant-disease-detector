@@ -7,7 +7,12 @@ import StateHotspotMap from "./pages/StateHotspotMap";
 import TrendMetrics from "./components/TrendMetrics";
 import { type MockCase } from "./data/mockCases";
 
-type Page = "triage" | "map" | "analytics";
+import { getCases } from "./api/caseApi";
+
+type Page =
+  | "triage"
+  | "map"
+  | "analytics";
 
 const API_BASE_URL = "http://localhost:8000/api";
 
@@ -138,7 +143,7 @@ function App() {
     );
   }
 
-  // =========================================
+  // =====================================================
   // MAIN DASHBOARD
   // =========================================
   return (
