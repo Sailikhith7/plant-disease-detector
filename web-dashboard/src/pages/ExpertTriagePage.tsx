@@ -103,11 +103,19 @@ function ExpertTriagePage({
             onChange={(e) => setDistrictFilter(e.target.value)}
           >
             <option value="All">All Districts</option>
+            <option value="Amravati">Amravati</option>
+            <option value="Akola">Akola</option>
+            <option value="Chhatrapati Sambhajinagar (Aurangabad)">Aurangabad</option>
+            <option value="Nagpur">Nagpur</option>
+            <option value="Pune">Pune</option>
+            <option value="Sangli">Sangli</option>
+            <option value="Satara">Satara</option>  
+            <option value="Solapur">Solapur</option>
+            <option value="Wardha">Wardha</option>
             <option value="Yavatmal">Yavatmal</option>
             <option value="Nanded">Nanded</option>
             <option value="Nashik">Nashik</option>
             <option value="Kolhapur">Kolhapur</option>
-            <option value="Akola">Akola</option>
           </select>
 
           <select

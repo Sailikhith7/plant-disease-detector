@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.ImageCapture
@@ -54,19 +53,34 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+private val HOME_DISTRICTS = listOf(
+    "Ahilyanagar (Ahmednagar)", "Akola", "Amravati", "Beed", "Bhandara",
+    "Buldhana", "Chandrapur", "Chhatrapati Sambhajinagar (Aurangabad)",
+    "Dharashiv (Osmanabad)", "Dhule", "Gadchiroli", "Gondia", "Hingoli",
+    "Jalgaon", "Jalna", "Kolhapur", "Latur", "Mumbai City", "Mumbai Suburban",
+    "Nagpur", "Nanded", "Nandurbar", "Nashik", "Palghar", "Parbhani",
+    "Pune", "Raigad", "Ratnagiri", "Sangli", "Satara", "Sindhudurg",
+    "Solapur", "Thane", "Wardha", "Washim", "Yavatmal"
+)
+
 object AppStrings {
     fun get(lang: String): Map<String, String> = when (lang) {
         "hi" -> mapOf(
             "title" to "🌱 किसान मित्र",
             "step1_title" to "१. फसल का प्रकार चुनें",
             "step2_lang" to "२. पसंदीदा भाषा",
+            "step3_farmer" to "३. किसान का नाम",
+            "step4_district" to "४. जिला (महाराष्ट्र)",
             "btn_proceed" to "पत्ती स्कैनर पर जाएं",
             "scanner_instruction" to "कैमरे के सामने संक्रमित पत्ती रखें",
             "btn_capture" to "📸 फोटो लें और विश्लेषण करें",
             "analyzing" to "एआई और आरएजी द्वारा विश्लेषण हो रहा है...",
             "diag_result" to "जांच परिणाम",
-            "high_conf" to "उच्च सटीकता",
+            "high_conf" to "उच्च सटीकता (High Confidence)",
+            "low_conf" to "समीक्षा आवश्यक (Under Expert Review)",
             "crop_lbl" to "फसल",
+            "farmer_lbl" to "किसान",
+            "district_lbl" to "जिला",
             "disease_lbl" to "पहचाना गया रोग",
             "advisory_title" to "एआई उपचार सलाह (RAG Guidance)",
             "btn_restart" to "दूसरे नमूने की जांच करें",
@@ -78,19 +92,30 @@ object AppStrings {
             "hist_title" to "पिछले निदान रिकॉर्ड",
             "hist_empty" to "अभी तक कोई इतिहास रिकॉर्ड नहीं मिला।",
             "hist_synced" to "क्लाउड पर सिंक किया गया",
-            "hist_pending" to "लोकल सेव (सिंक लंबित)"
+            "hist_pending" to "लोकल सेव (सिंक लंबित)",
+            "help_title" to "महाराष्ट्र कृषि सहायता (Help & Support)",
+            "help_desc" to "यदि आपको फसल निदान या सहायता चाहिए, तो नीचे दिए गए माध्यमों से संपर्क करें:",
+            "help_helpline" to "हेल्पलाइन नंबर: [ यहाँ अपना नंबर दर्ज करें ]",
+            "help_email" to "ईमेल सहायता: [ यहाँ ईमेल दर्ज करें ]",
+            "help_website" to "आधिकारिक वेबसाइट: [ यहाँ लिंक दर्ज करें ]",
+            "close_btn" to "बंद करें"
         )
         "mr" -> mapOf(
             "title" to "🌱 किसान मित्र",
             "step1_title" to "१. पिकाचा प्रकार निवडा",
             "step2_lang" to "२. पसंतीची भाषा",
+            "step3_farmer" to "३. शेतकऱ्याचे नाव",
+            "step4_district" to "४. जिल्हा (महाराष्ट्र)",
             "btn_proceed" to "पाने स्कॅनरकडे जा",
             "scanner_instruction" to "कॅमेऱ्यासमोर बाधित पान धरा",
             "btn_capture" to "📸 फोटो घ्या आणि विश्लेषण करा",
             "analyzing" to "एआई व आरएजी द्वारे विश्लेषण सुरू आहे...",
             "diag_result" to "निदान निकाल",
-            "high_conf" to "उच्च अचूकता",
+            "high_conf" to "उच्च अचूकता (High Confidence)",
+            "low_conf" to "तज्ज्ञ पुनरावलोकन (Under Expert Review)",
             "crop_lbl" to "पीक",
+            "farmer_lbl" to "शेतकरी",
+            "district_lbl" to "जिल्हा",
             "disease_lbl" to "आढळलेला रोग",
             "advisory_title" to "एआय उपचार सल्ला (RAG Guidance)",
             "btn_restart" to "दुसऱ्या नमुन्याची तपासणी करा",
@@ -102,19 +127,30 @@ object AppStrings {
             "hist_title" to "मागील निदान नोंदी",
             "hist_empty" to "अद्याप कोणताही इतिहास आढळला नाही.",
             "hist_synced" to "क्लाउडवर सिंक केले",
-            "hist_pending" to "स्थानिक सेव्ह (प्रलंबित)"
+            "hist_pending" to "स्थानिक सेव्ह (प्रलंबित)",
+            "help_title" to "महाराष्ट्र कृषी मदत (Help & Support)",
+            "help_desc" to "आपल्याला शेतीविषयी किंवा पिकांच्या रोगांबाबतीत मदत हवी असल्यास खालील संपर्कांवर संपर्क साधा:",
+            "help_helpline" to "हेल्पलाईन नंबर: [ इथे मोबाईल नंबर टाका ]",
+            "help_email" to "ईमेल पत्ता: [ इथे ईमेल टाका ]",
+            "help_website" to "अधिकृत संकेतस्थळ: [ इथे वेबसाईट लिंक टाका ]",
+            "close_btn" to "बंद करा"
         )
         else -> mapOf(
             "title" to "🌱 Kisan Mitra",
             "step1_title" to "1. Select Crop Type",
             "step2_lang" to "2. Preferred Language",
+            "step3_farmer" to "3. Farmer Full Name",
+            "step4_district" to "4. District (Maharashtra)",
             "btn_proceed" to "Proceed to Leaf Scanner",
             "scanner_instruction" to "Align infected leaf in viewfinder",
             "btn_capture" to "📸 Capture & Analyze",
             "analyzing" to "Analyzing leaf with ML & RAG...",
             "diag_result" to "Diagnosis Result",
             "high_conf" to "High Confidence",
+            "low_conf" to "Under Expert Review",
             "crop_lbl" to "Crop",
+            "farmer_lbl" to "Farmer",
+            "district_lbl" to "District",
             "disease_lbl" to "Detected Disease",
             "advisory_title" to "AI Treatment Advisory (RAG Guidance)",
             "btn_restart" to "Diagnose Another Sample",
@@ -126,7 +162,13 @@ object AppStrings {
             "hist_title" to "Diagnosis History",
             "hist_empty" to "No scan records found yet.",
             "hist_synced" to "Synced to Cloud",
-            "hist_pending" to "Local Saved (Pending Sync)"
+            "hist_pending" to "Local Saved (Pending Sync)",
+            "help_title" to "Maharashtra Farmer Help & Support",
+            "help_desc" to "If you need immediate assistance or expert agronomy support across Maharashtra, please reach out via:",
+            "help_helpline" to "Helpline / Mobile: [ Enter Phone Number Here ]",
+            "help_email" to "Support Email: [ Enter Email Address Here ]",
+            "help_website" to "Official Website: [ Enter Website Link Here ]",
+            "close_btn" to "Close"
         )
     }
 }
@@ -136,6 +178,8 @@ suspend fun processAndSaveCase(
     photoFile: File,
     crop: String,
     language: String,
+    farmerName: String,
+    district: String,
     defaultDisease: String
 ): CaseResponse = withContext(Dispatchers.IO) {
     val appContext = context.applicationContext
@@ -158,15 +202,22 @@ suspend fun processAndSaveCase(
         )
     } catch (_: Throwable) {}
 
-    // Hit Member B's /api/predict endpoint
     try {
         val requestFile = photoFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
         val imagePart = MultipartBody.Part.createFormData("image", photoFile.name, requestFile)
         val langBody = language.toRequestBody("text/plain".toMediaTypeOrNull())
+        val cropBody = crop.toRequestBody("text/plain".toMediaTypeOrNull())
+        val farmerNameBody = farmerName.ifBlank { "App Farmer" }.toRequestBody("text/plain".toMediaTypeOrNull())
+        val districtBody = district.toRequestBody("text/plain".toMediaTypeOrNull())
+        val farmerIdBody = "MH_${district.take(3).uppercase()}_001".toRequestBody("text/plain".toMediaTypeOrNull())
 
         val response = ApiClient.apiService.predictDisease(
             image = imagePart,
-            language = langBody
+            language = langBody,
+            crop = cropBody,
+            farmerName = farmerNameBody,
+            district = districtBody,
+            farmerId = farmerIdBody
         )
 
         if (response.isSuccessful && response.body() != null) {
@@ -186,7 +237,7 @@ suspend fun processAndSaveCase(
         crop = crop,
         disease = defaultDisease,
         confidence = 0.92f,
-        status = "confident",
+        status = "Pending Expert",
         response = str["fallback_advisory"] ?: "",
         language = language
     )
@@ -195,27 +246,9 @@ suspend fun processAndSaveCase(
 @Composable
 fun HistoryTabContent(selectedLanguage: String) {
     val context = LocalContext.current
-    var casesList by remember { mutableStateOf<List<CaseEntity>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
     val str = AppStrings.get(selectedLanguage)
-
-    LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            try {
-                val db = AppDatabase.getDatabase(context.applicationContext)
-                val list = db.caseDao().getAllCases()
-                withContext(Dispatchers.Main) {
-                    casesList = list
-                    isLoading = false
-                }
-            } catch (_: Throwable) {
-                withContext(Dispatchers.Main) {
-                    casesList = emptyList()
-                    isLoading = false
-                }
-            }
-        }
-    }
+    val db = remember { AppDatabase.getDatabase(context.applicationContext) }
+    val casesList by db.caseDao().getAllCasesFlow().collectAsState(initial = emptyList())
 
     Column(
         modifier = Modifier
@@ -231,25 +264,22 @@ fun HistoryTabContent(selectedLanguage: String) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        if (isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else if (casesList.isEmpty()) {
+        if (casesList.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(bottom = 60.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = str["hist_empty"] ?: "No scan records found yet.",
-                    color = Color.Gray,
-                    fontSize = 15.sp
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("🌿", fontSize = 42.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = str["hist_empty"] ?: "No scan records found yet.",
+                        color = Color.Gray,
+                        fontSize = 15.sp
+                    )
+                }
             }
         } else {
             LazyColumn(
@@ -386,25 +416,100 @@ data class GuideItem(val cropName: String, val pests: String, val stage: String,
 fun GuideTabContent(selectedLanguage: String) {
     val guides = when (selectedLanguage) {
         "hi" -> listOf(
-            GuideItem("कपास (Cotton)", "गुलाबी सुंडी, सफेद मक्खी", "फूल और बोंड बनने का समय", "प्रति हेक्टेयर 5 फेरोमोन ट्रैप लगाएं और अत्यधिक यूरिया से बचें।"),
-            GuideItem("मूंगफली (Groundnut)", "टिक्का रोग, कॉलर रोट", "अंकुरण और फली विकास", "ट्राइकोडर्मा से बीज उपचार करें और उचित जल निकासी बनाए रखें।"),
-            GuideItem("रागी (Ragi)", "ब्लास्ट रोग, तना छेदक", "टिलरिंग अवस्था", "सहनशील किस्में चुनें और नीम के अर्क का छिड़काव करें।"),
-            GuideItem("चावल (Rice)", "ब्लास्ट, शीथ ब्लाइट", "फुटाव और बालियां निकलने का समय", "उचित दूरी पर रोपाई करें और पोटाश उर्वरक का संतुलित उपयोग करें।"),
-            GuideItem("गन्ना (Sugarcane)", "लाल सड़न, शीर्ष छेदक", "टिलरिंग और विकास", "स्वस्थ बीज सेट का चयन करें और ट्राइकोग्रामा परजीवी छोड़ें।")
+            GuideItem(
+                cropName = "कपास (Cotton)",
+                pests = "गुलाबी सुंडी, सफेद मक्खी, लीफ कर्ल",
+                stage = "फूल और बोंड बनने की अवस्था",
+                tip = "प्रति हेक्टेयर 5 फेरोमोन ट्रैप लगाएं; अत्यधिक नाइट्रोजन खाद के प्रयोग से बचें।"
+            ),
+            GuideItem(
+                cropName = "मूंगफली (Groundnut)",
+                pests = "टिक्का रोग, कॉलर रोट, तना सड़न",
+                stage = "अंकुरण और फली विकास",
+                tip = "ट्राइकोडर्मा से बीज उपचार करें; जलभराव रोकने के लिए उचित जल निकासी रखें।"
+            ),
+            GuideItem(
+                cropName = "रागी (Ragi)",
+                pests = "ब्लास्ट (करपा) रोग, तना छेदक",
+                stage = "टिलरिंग और बाल, फूल आने की अवस्था",
+                tip = "रोग-प्रतिरोधी किस्मों का चयन करें; निवारक उपाय के रूप में नीम के अर्क का छिड़काव करें।"
+            ),
+            GuideItem(
+                cropName = "चावल (Rice)",
+                pests = "धान का ब्लास्ट, शीथ ब्लाइट, बैक्टीरियल ब्लाइट",
+                stage = "फुटाव और बाली निकलते समय",
+                tip = "संतुलित उर्वरक (NPK) दें; खेत में पानी का ठहराव रोकें और प्रमाणित बीजों का उपयोग करें।"
+            ),
+            GuideItem(
+                cropName = "गन्ना (Sugarcane)",
+                pests = "लाल सड़न (रेड रॉट), कण्डवा (स्मट), शीर्ष छेदक",
+                stage = "अंकुरण और कल्ले फूटने की अवस्था",
+                tip = "स्वस्थ व रोगमुक्त बीजों (सेट) का उपयोग करें; फसल चक्र अपनाएं और खेत की सफाई रखें।"
+            )
         )
         "mr" -> listOf(
-            GuideItem("कापूस (Cotton)", "गुलाबी बोंडअळी, पांढरी माशी", "फुलोरा व बोंडे धरण्याची वेळ", "हेक्टरी ५ कामगंध सापळे लावा आणि अतिरिक्त युरियाचा वापर टाळा."),
-            GuideItem("भुईमूग (Groundnut)", "टिक्का रोग, खोडकुज", "उगवण व शेंगा भरणे", "ट्रायकोडर्माने बीजप्रक्रिया करा आणि पाण्याचा चांगला निचरा ठेवा."),
-            GuideItem("नाचणी/रागी (Ragi)", "ब्लास्ट (करपा), खोड किडा", "फुटवे फुटण्याची वेळ", "प्रतिकारक्षम वाण वापरा आणि निंबोळी अर्काची फवारणी करा."),
-            GuideItem("भात/तांदूळ (Rice)", "करपा, कडा करपा", "लोंबी भरण्याची अवस्था", "योग्य अंतरावर लागवड करा आणि पोटॅश खतांचा संतुलित वापर करा."),
-            GuideItem("ऊस (Sugarcane)", "लाल कुज, खोड कीड", "वाढीची अवस्था", "निरोगी बेणे वापरा आणि ट्रायकोकार्डचा वापर करा.")
+            GuideItem(
+                cropName = "कापूस (Cotton)",
+                pests = "गुलाबी बोंडअळी, पांढरी माशी, मावा",
+                stage = "फुलोरा व बोंडे धरण्याची अवस्था",
+                tip = "हेक्टरी ५ कामगंध सापळे (Pheromone Traps) लावा; अतिरिक्त नत्र (युरिया) खताचा वापर टाळा."
+            ),
+            GuideItem(
+                cropName = "भुईमूग (Groundnut)",
+                pests = "टिक्का रोग, खोडकुज, मूळकुज",
+                stage = "उगवण व शेंगा भरण्याची अवस्था",
+                tip = "ट्रायकोडर्माने बीजप्रक्रिया करा; पाण्याचा निचरा व्यवस्थित ठेवून साचू देऊ नका."
+            ),
+            GuideItem(
+                cropName = "नाचणी/रागी (Ragi)",
+                pests = "करपा (Blast), खोड कीड",
+                stage = "फुटावे फुटण्याची व पोंगा अवस्था",
+                tip = "प्रतिकारक्षम वाणांची निवड करा; प्रतिबंधात्मक उपाय म्हणून निंबोळी अर्काची फवारणी करा."
+            ),
+            GuideItem(
+                cropName = "भात/तांदूळ (Rice)",
+                pests = "करपा (Blast), शीथ ब्लाइट, जिवाणू करपा",
+                stage = "फुटावे फुटणे व लोंबी भरण्याची वेळ",
+                tip = "संतुलित खत व्यवस्थापन ठेवा; शेतात पाणी साचू देऊ नका व प्रमाणित बियाणे वापर करा."
+            ),
+            GuideItem(
+                cropName = "ऊस (Sugarcane)",
+                pests = "लाल कुज (Red Rot), काजळी, खोड कीड",
+                stage = "उगवण व फुटवे फुटण्याची अवस्था",
+                tip = "निरोगी व रोगमुक्त बेणे वापरा; फेरपालट पद्धत अवलंबा व शेत तणमुक्त ठेवा."
+            )
         )
         else -> listOf(
-            GuideItem("Cotton", "Pink Bollworm, Whitefly", "Flowering & Boll Formation", "Install 5 pheromone traps/ha; avoid excessive chemical nitrogen application."),
-            GuideItem("Groundnut", "Tikka Disease, Collar Rot", "Seedling & Pod Development", "Treat seeds with Trichoderma viride; maintain proper soil drainage."),
-            GuideItem("Ragi", "Blast Disease, Stem Borer", "Tillering Stage", "Use blast-resistant varieties; spray neem seed kernel extract (1500 ppm)."),
-            GuideItem("Rice", "Blast, Sheath Blight", "Panicle Initiation", "Maintain balanced NPK with sufficient Potash; avoid water stagnation."),
-            GuideItem("Sugarcane", "Red Rot, Early Shoot Borer", "Tillering & Rapid Growth", "Use disease-free certified setts; release Trichogramma egg parasitoids.")
+            GuideItem(
+                cropName = "Cotton",
+                pests = "Pink Bollworm, Whitefly, Leaf Curl",
+                stage = "Flowering & Boll Formation Stage",
+                tip = "Install 5 pheromone traps per hectare; avoid excessive chemical nitrogen fertilizer applications."
+            ),
+            GuideItem(
+                cropName = "Groundnut",
+                pests = "Tikka Disease, Collar Rot, Stem Rot",
+                stage = "Seedling & Pod Development Stage",
+                tip = "Treat seeds with Trichoderma viride; maintain proper soil drainage to prevent waterlogging."
+            ),
+            GuideItem(
+                cropName = "Ragi",
+                pests = "Blast Disease, Stem Borer",
+                stage = "Tillering & Flowering Stage",
+                tip = "Use certified blast-resistant varieties; spray neem seed kernel extract (1500 ppm) preventively."
+            ),
+            GuideItem(
+                cropName = "Rice",
+                pests = "Rice Blast, Sheath Blight, Bacterial Blight",
+                stage = "Tillering & Panicle Initiation Stage",
+                tip = "Apply balanced NPK fertilizers; avoid water stagnation and use certified disease-free seeds."
+            ),
+            GuideItem(
+                cropName = "Sugarcane",
+                pests = "Red Rot, Smut, Early Shoot Borer",
+                stage = "Germination & Tillering Stage",
+                tip = "Plant disease-free certified setts; practice field sanitation and regular crop rotation."
+            )
         )
     }
 
@@ -456,8 +561,16 @@ fun HomeScreen() {
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var currentStep by remember { mutableIntStateOf(1) }
+
+    // User Selection States
     var selectedCrop by remember { mutableStateOf("Cotton") }
     var selectedLanguage by remember { mutableStateOf("en") }
+    var farmerName by remember { mutableStateOf("") }
+    var selectedDistrict by remember { mutableStateOf("Yavatmal") }
+    var isDistrictDropdownExpanded by remember { mutableStateOf(false) }
+
+    // Help Dialog State
+    var showHelpDialog by remember { mutableStateOf(false) }
 
     val str = AppStrings.get(selectedLanguage)
 
@@ -480,6 +593,45 @@ fun HomeScreen() {
         hasCameraPermission = permissions[Manifest.permission.CAMERA] == true
     }
 
+    // Gallery Picker Launcher
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { selectedUri ->
+            isLoading = true
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    val inputStream = context.contentResolver.openInputStream(selectedUri)
+                    val cacheFile = File(context.cacheDir, "gallery_scan_${System.currentTimeMillis()}.jpg")
+                    val outputStream = FileOutputStream(cacheFile)
+                    inputStream?.copyTo(outputStream)
+                    inputStream?.close()
+                    outputStream.close()
+
+                    capturedPhotoFile = cacheFile
+                    val result = processAndSaveCase(
+                        context = context,
+                        photoFile = cacheFile,
+                        crop = selectedCrop,
+                        language = selectedLanguage,
+                        farmerName = farmerName,
+                        district = selectedDistrict,
+                        defaultDisease = str["disease_name"] ?: "Pink Bollworm"
+                    )
+                    withContext(Dispatchers.Main) {
+                        isLoading = false
+                        resultData = result
+                        currentStep = 3
+                    }
+                } catch (_: Throwable) {
+                    withContext(Dispatchers.Main) {
+                        isLoading = false
+                    }
+                }
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         if (!hasCameraPermission) {
             permissionLauncher.launch(
@@ -492,10 +644,48 @@ fun HomeScreen() {
         }
     }
 
+    // Help & Support Dialog Popup
+    if (showHelpDialog) {
+        AlertDialog(
+            onDismissRequest = { showHelpDialog = false },
+            title = {
+                Text(text = str["help_title"] ?: "Help & Support", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(text = str["help_desc"] ?: "", fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // ========================================================
+                    // FRIENDLY CONTRIBUTION AREA:
+                    // Easily update or fill these contact fields tomorrow!
+                    // ========================================================
+                    Text(text = str["help_helpline"] ?: "", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    Text(text = str["help_email"] ?: "", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    Text(text = str["help_website"] ?: "", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showHelpDialog = false }) {
+                    Text(str["close_btn"] ?: "Close")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(str["title"] ?: "🌱 Kisan Mitra", fontWeight = FontWeight.Bold) },
+                actions = {
+                    // Help action button on the right side of the TopAppBar
+                    IconButton(onClick = { showHelpDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Help & Support"
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 )
@@ -540,8 +730,14 @@ fun HomeScreen() {
                     ) {
                         when (currentStep) {
                             1 -> {
-                                Text(str["step1_title"] ?: "", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                                Spacer(modifier = Modifier.height(12.dp))
+                                // 1. Crop Selection
+                                Text(
+                                    str["step1_title"] ?: "1. Select Crop Type",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.align(Alignment.Start)
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -569,9 +765,16 @@ fun HomeScreen() {
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(24.dp))
-                                Text(str["step2_lang"] ?: "", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                                Spacer(modifier = Modifier.height(12.dp))
+                                Spacer(modifier = Modifier.height(20.dp))
+
+                                // 2. Language Selection
+                                Text(
+                                    str["step2_lang"] ?: "2. Preferred Language",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.align(Alignment.Start)
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -594,13 +797,85 @@ fun HomeScreen() {
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(36.dp))
+                                Spacer(modifier = Modifier.height(20.dp))
+
+                                // 3. Farmer Name Input
+                                Text(
+                                    str["step3_farmer"] ?: "3. Farmer Full Name",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.align(Alignment.Start)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                OutlinedTextField(
+                                    value = farmerName,
+                                    onValueChange = { farmerName = it },
+                                    label = { Text("Farmer Name") },
+                                    placeholder = { Text("e.g. Kasim Sheikh") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+
+                                Spacer(modifier = Modifier.height(20.dp))
+
+                                // 4. Maharashtra 36 Districts Dropdown
+                                Text(
+                                    str["step4_district"] ?: "4. District (Maharashtra)",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.align(Alignment.Start)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                ExposedDropdownMenuBox(
+                                    expanded = isDistrictDropdownExpanded,
+                                    onExpandedChange = { isDistrictDropdownExpanded = !isDistrictDropdownExpanded },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    OutlinedTextField(
+                                        value = selectedDistrict,
+                                        onValueChange = {},
+                                        readOnly = true,
+                                        label = { Text("District") },
+                                        trailingIcon = {
+                                            ExposedDropdownMenuDefaults.TrailingIcon(
+                                                expanded = isDistrictDropdownExpanded
+                                            )
+                                        },
+                                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier
+                                            .menuAnchor()
+                                            .fillMaxWidth()
+                                    )
+
+                                    ExposedDropdownMenu(
+                                        expanded = isDistrictDropdownExpanded,
+                                        onDismissRequest = { isDistrictDropdownExpanded = false }
+                                    ) {
+                                        HOME_DISTRICTS.forEach { districtOption ->
+                                            DropdownMenuItem(
+                                                text = { Text(districtOption) },
+                                                onClick = {
+                                                    selectedDistrict = districtOption
+                                                    isDistrictDropdownExpanded = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(32.dp))
 
                                 Button(
                                     onClick = { currentStep = 2 },
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(50.dp),
+                                    shape = RoundedCornerShape(10.dp)
                                 ) {
-                                    Text(str["btn_proceed"] ?: "")
+                                    Text(str["btn_proceed"] ?: "Proceed to Leaf Scanner", fontSize = 16.sp)
                                 }
                             }
 
@@ -652,6 +927,8 @@ fun HomeScreen() {
                                                                 photoFile = file,
                                                                 crop = selectedCrop,
                                                                 language = selectedLanguage,
+                                                                farmerName = farmerName,
+                                                                district = selectedDistrict,
                                                                 defaultDisease = str["disease_name"] ?: "Pink Bollworm"
                                                             )
                                                             isLoading = false
@@ -677,6 +954,8 @@ fun HomeScreen() {
                                                                 photoFile = fallbackFile,
                                                                 crop = selectedCrop,
                                                                 language = selectedLanguage,
+                                                                farmerName = farmerName,
+                                                                district = selectedDistrict,
                                                                 defaultDisease = str["disease_name"] ?: "Pink Bollworm"
                                                             )
                                                             isLoading = false
@@ -703,6 +982,8 @@ fun HomeScreen() {
                                                         photoFile = fallbackFile,
                                                         crop = selectedCrop,
                                                         language = selectedLanguage,
+                                                        farmerName = farmerName,
+                                                        district = selectedDistrict,
                                                         defaultDisease = str["disease_name"] ?: "Pink Bollworm"
                                                     )
                                                     isLoading = false
@@ -711,29 +992,51 @@ fun HomeScreen() {
                                                 }
                                             }
                                         },
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(50.dp),
+                                        shape = RoundedCornerShape(10.dp)
                                     ) {
-                                        Text(str["btn_capture"] ?: "")
+                                        Text(str["btn_capture"] ?: "📸 Capture & Analyze", fontSize = 16.sp)
+                                    }
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    OutlinedButton(
+                                        onClick = { galleryLauncher.launch("image/*") },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(50.dp),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Text("📁 Choose from Gallery", fontSize = 16.sp)
                                     }
                                 }
                             }
 
                             3 -> {
                                 resultData?.let { res ->
-                                    Text(str["diag_result"] ?: "", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                                    val isHighConfidence = res.confidence >= 0.75f
+                                    val confidencePercent = (res.confidence * 100).toInt()
+
+                                    Text(str["diag_result"] ?: "Diagnosis Result", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                                     Spacer(modifier = Modifier.height(8.dp))
 
                                     Box(
                                         modifier = Modifier
                                             .background(
-                                                if (res.confidence >= 0.70f) Color(0xFFE8F5E9) else Color(0xFFFFF9C4),
+                                                if (isHighConfidence) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
                                                 shape = RoundedCornerShape(12.dp)
                                             )
                                             .padding(horizontal = 14.dp, vertical = 6.dp)
                                     ) {
                                         Text(
-                                            text = "${str["high_conf"]} (${(res.confidence * 100).toInt()}%)",
-                                            color = if (res.confidence >= 0.70f) Color(0xFF2E7D32) else Color(0xFFF57F17),
+                                            text = if (isHighConfidence) {
+                                                "${str["high_conf"]} ($confidencePercent%)"
+                                            } else {
+                                                "${str["low_conf"]} ($confidencePercent%)"
+                                            },
+                                            color = if (isHighConfidence) Color(0xFF2E7D32) else Color(0xFFE65100),
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -759,7 +1062,16 @@ fun HomeScreen() {
                                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                                     ) {
                                         Column(modifier = Modifier.padding(16.dp)) {
-                                            Text("${str["crop_lbl"]}: ${res.crop.replaceFirstChar { it.uppercase() }}", fontSize = 15.sp)
+                                            Text(
+                                                "${str["crop_lbl"]}: ${res.crop.replaceFirstChar { it.uppercase() }}",
+                                                fontSize = 15.sp
+                                            )
+                                            Text(
+                                                "${str["farmer_lbl"]}: ${farmerName.ifBlank { "Kasim" }} | ${str["district_lbl"]}: $selectedDistrict",
+                                                fontSize = 13.sp,
+                                                color = Color.DarkGray
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
                                             Text(
                                                 "${str["disease_lbl"]}: ${res.disease.replace('_', ' ').replaceFirstChar { it.uppercase() }}",
                                                 fontSize = 18.sp,
@@ -773,7 +1085,7 @@ fun HomeScreen() {
                                     Spacer(modifier = Modifier.height(16.dp))
 
                                     if (res.response.isNotBlank()) {
-                                        Text(str["advisory_title"] ?: "", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                                        Text(str["advisory_title"] ?: "AI Treatment Advisory", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                                         Spacer(modifier = Modifier.height(8.dp))
 
                                         Card(
@@ -798,9 +1110,12 @@ fun HomeScreen() {
                                             resultData = null
                                             currentStep = 1
                                         },
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(50.dp),
+                                        shape = RoundedCornerShape(10.dp)
                                     ) {
-                                        Text(str["btn_restart"] ?: "")
+                                        Text(str["btn_restart"] ?: "Diagnose Another Sample", fontSize = 16.sp)
                                     }
                                 }
                             }

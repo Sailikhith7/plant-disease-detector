@@ -6,14 +6,14 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "offline_cases")
 data class CaseEntity(
     @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
-    val localImagePath: String = "",
-    val crop: String = "",
-    val language: String = "en",
-    val latitude: Float = 0f,
-    val longitude: Float = 0f,
-    val detectedDisease: String = "Pink Bollworm",
-    val confidence: Float = 0.92f,
+    val id: Long = 0L,
+    val localImagePath: String,
+    val crop: String,
+    val language: String,
+    val latitude: Float,
+    val longitude: Float,
+    val detectedDisease: String,
+    val confidence: Float,
     val isSynced: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis() // or Long
 )

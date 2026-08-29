@@ -8,7 +8,6 @@ router = APIRouter(
     tags=["Cases"]
 )
 
-# Use unified database path (creates directory if missing)
 DB_PATH = "data/peekrakshak.db"
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
@@ -17,7 +16,6 @@ def init_cases_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Ensure farmers table exists
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS farmers (
             farmer_id TEXT PRIMARY KEY,
@@ -27,7 +25,6 @@ def init_cases_db():
         )
     """)
 
-    # Ensure cases table exists with all required columns
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS cases (
             case_id TEXT PRIMARY KEY,
@@ -46,7 +43,6 @@ def init_cases_db():
         )
     """)
 
-    # Ensure expert responses table exists
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS expert_responses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,25 +52,27 @@ def init_cases_db():
         )
     """)
 
-    # Schema migration: Ensure farmer_id exists if an older table was created
     cursor.execute("PRAGMA table_info(cases)")
     columns = [col[1] for col in cursor.fetchall()]
     if "farmer_id" not in columns:
         cursor.execute("ALTER TABLE cases ADD COLUMN farmer_id TEXT")
     if "farmer_name" not in columns:
         cursor.execute("ALTER TABLE cases ADD COLUMN farmer_name TEXT")
+    if "severity" not in columns:
+        cursor.execute("ALTER TABLE cases ADD COLUMN severity TEXT DEFAULT 'Medium'")
+    if "latitude" not in columns:
+        cursor.execute("ALTER TABLE cases ADD COLUMN latitude REAL")
+    if "longitude" not in columns:
+        cursor.execute("ALTER TABLE cases ADD COLUMN longitude REAL")
+    if "image_url" not in columns:
+        cursor.execute("ALTER TABLE cases ADD COLUMN image_url TEXT")
 
     conn.commit()
     conn.close()
 
 
-# Initialize database tables on load
 init_cases_db()
 
-
-# =========================================================
-# GET ALL CASES (Supports both /api/cases and /api/cases/)
-# =========================================================
 
 @router.get("")
 @router.get("/")
@@ -92,6 +90,10 @@ def list_cases():
             c.crop,
             c.disease_detected,
             c.confidence,
+            c.severity,
+            c.latitude,
+            c.longitude,
+            c.image_url,
             c.status,
             c.created_at
         FROM cases c
@@ -118,6 +120,10 @@ def list_cases():
             "disease": row["disease_detected"],
             "confidence": confidence_percent,
             "district": row["district"],
+            "severity": row["severity"] if "severity" in row.keys() and row["severity"] else "Medium",
+            "latitude": row["latitude"],
+            "longitude": row["longitude"],
+            "image_url": row["image_url"],
             "status": status_label,
             "created_at": row["created_at"],
         })
@@ -127,10 +133,6 @@ def list_cases():
         "cases": cases
     }
 
-
-# =========================================================
-# GET SINGLE CASE
-# =========================================================
 
 @router.get("/{case_id}")
 def get_case(case_id: str):
@@ -147,6 +149,10 @@ def get_case(case_id: str):
             c.crop,
             c.disease_detected,
             c.confidence,
+            c.severity,
+            c.latitude,
+            c.longitude,
+            c.image_url,
             c.status,
             c.created_at,
             (
@@ -181,15 +187,15 @@ def get_case(case_id: str):
         "crop": row["crop"],
         "disease": row["disease_detected"],
         "confidence": confidence_percent,
+        "severity": row["severity"] if "severity" in row.keys() and row["severity"] else "Medium",
+        "latitude": row["latitude"],
+        "longitude": row["longitude"],
+        "image_url": row["image_url"] if "image_url" in row.keys() else None,
         "status": row["status"],
         "expert_response": row["expert_response"],
         "created_at": row["created_at"],
     }
 
-
-# =========================================================
-# EXPERT RESPONSE MODEL & RESOLUTION
-# =========================================================
 
 class ExpertResponse(BaseModel):
     expert_response: str

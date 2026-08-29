@@ -68,7 +68,7 @@ fun AppNavigation() {
     var predictionResult by remember { mutableStateOf<PredictionData?>(null) }
 
     // Replace with your local machine's IPv4 address (e.g., "http://192.168.1.10:8000")
-    val backendBaseUrl = "http://localhost:8000"
+    val backendBaseUrl = "http://192.168.137.1:8000"
 
     when (currentScreen) {
         "home" -> {

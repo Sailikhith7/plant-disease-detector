@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [CaseEntity::class], version = 3, exportSchema = false)
+@Database(entities = [CaseEntity::class], version = 2, exportSchema = false) // Increment version from 1 to 2 (or +1)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun caseDao(): CaseDao
 
@@ -18,9 +18,9 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "kisan_mitra_database"
+                    "peekrakshak_db"
                 )
-                    .fallbackToDestructiveMigration()
+                    .fallbackToDestructiveMigration() // Safely clears old table structure on version change
                     .build()
                 INSTANCE = instance
                 instance

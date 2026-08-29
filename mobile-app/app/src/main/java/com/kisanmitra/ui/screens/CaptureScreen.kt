@@ -1,13 +1,13 @@
 package com.kisanmitra.ui.screens
 
-import android.content.Context
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -22,7 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -34,25 +33,40 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
-import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
+val MAHARASHTRA_DISTRICTS = listOf(
+    "Ahilyanagar (Ahmednagar)", "Akola", "Amravati", "Beed", "Bhandara",
+    "Buldhana", "Chandrapur", "Chhatrapati Sambhajinagar (Aurangabad)",
+    "Dharashiv (Osmanabad)", "Dhule", "Gadchiroli", "Gondia", "Hingoli",
+    "Jalgaon", "Jalna", "Kolhapur", "Latur", "Mumbai City", "Mumbai Suburban",
+    "Nagpur", "Nanded", "Nandurbar", "Nashik", "Palghar", "Parbhani",
+    "Pune", "Raigad", "Ratnagiri", "Sangli", "Satara", "Sindhudurg",
+    "Solapur", "Thane", "Wardha", "Washim", "Yavatmal"
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CaptureScreen(
-    backendUrl: String = "http://localhost:8000",
+    backendUrl: String = "http://192.168.137.1:8000",
     selectedLanguage: String = "en",
     onDiagnosisSuccess: (crop: String, disease: String, confidence: Float, status: String, response: String) -> Unit,
     onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
 
     var isUploading by remember { mutableStateOf(false) }
-    var tempImageUri by remember { mutableStateOf<Uri?>(null) }
     var tempImageFile by remember { mutableStateOf<File?>(null) }
+
+    // User Inputs (Default blank / first district)
+    var enteredFarmerName by remember { mutableStateOf("") }
+    var enteredCrop by remember { mutableStateOf("Cotton") }
+    var selectedDistrict by remember { mutableStateOf("Yavatmal") }
+    var isDistrictDropdownExpanded by remember { mutableStateOf(false) }
 
     fun createTempImageFile(): File {
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
@@ -63,6 +77,10 @@ fun CaptureScreen(
     }
 
     fun uploadAndPredict(imageFile: File) {
+        val farmerToSubmit = if (enteredFarmerName.isNotBlank()) enteredFarmerName.trim() else "App Farmer"
+        val districtToSubmit = selectedDistrict
+        val cropToSubmit = if (enteredCrop.isNotBlank()) enteredCrop.trim() else "Cotton"
+
         isUploading = true
         coroutineScope.launch(Dispatchers.IO) {
             try {
@@ -79,6 +97,10 @@ fun CaptureScreen(
                         imageFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
                     )
                     .addFormDataPart("language", selectedLanguage)
+                    .addFormDataPart("farmer_name", farmerToSubmit)
+                    .addFormDataPart("crop", cropToSubmit)
+                    .addFormDataPart("district", districtToSubmit)
+                    .addFormDataPart("farmer_id", "FARMER_${UUID.randomUUID().toString().take(6).uppercase()}")
                     .build()
 
                 val request = Request.Builder()
@@ -93,10 +115,10 @@ fun CaptureScreen(
                     isUploading = false
                     if (response.isSuccessful && responseData != null) {
                         val json = JSONObject(responseData)
-                        val crop = json.optString("crop", "Unknown")
+                        val crop = json.optString("crop", cropToSubmit)
                         val disease = json.optString("disease", "Unknown")
                         val confidence = json.optDouble("confidence", 0.0).toFloat()
-                        val status = json.optString("status", "healthy")
+                        val status = json.optString("status", "Pending Expert")
                         val advisory = json.optString("response", "No advisory generated.")
 
                         onDiagnosisSuccess(crop, disease, confidence, status, advisory)
@@ -146,7 +168,7 @@ fun CaptureScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Scan Leaf Disease", fontWeight = FontWeight.Bold) },
+                title = { Text("Enter Details & Scan", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -164,7 +186,7 @@ fun CaptureScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(24.dp),
+                .padding(20.dp),
             contentAlignment = Alignment.Center
         ) {
             if (isUploading) {
@@ -178,43 +200,101 @@ fun CaptureScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "Analyzing leaf image with AI...",
+                        text = "Analyzing & registering case...",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Checking disease classification & generating advisory",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
                     )
                 }
             } else {
                 Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
+                    // Field Inputs Card
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F8E9)),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                text = "Instructions for Best Accuracy",
+                                text = "Farmer & Field Details",
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1B5E20)
+                                color = Color(0xFF1B5E20),
+                                fontSize = 16.sp
                             )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "• Place a single affected leaf in focus\n• Ensure good daylight lighting\n• Avoid blurry or distant photos",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFF2E7D32)
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // 1. Farmer Name Input
+                            OutlinedTextField(
+                                value = enteredFarmerName,
+                                onValueChange = { enteredFarmerName = it },
+                                label = { Text("Farmer Full Name") },
+                                placeholder = { Text("e.g. Kasim Sheikh") },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp),
+                                singleLine = true
                             )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // 2. Crop Selection
+                            OutlinedTextField(
+                                value = enteredCrop,
+                                onValueChange = { enteredCrop = it },
+                                label = { Text("Crop Type") },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp),
+                                singleLine = true
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // 3. 36 Maharashtra Districts Dropdown
+                            ExposedDropdownMenuBox(
+                                expanded = isDistrictDropdownExpanded,
+                                onExpandedChange = { isDistrictDropdownExpanded = !isDistrictDropdownExpanded },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                OutlinedTextField(
+                                    value = selectedDistrict,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("District (Maharashtra)") },
+                                    trailingIcon = {
+                                        ExposedDropdownMenuDefaults.TrailingIcon(
+                                            expanded = isDistrictDropdownExpanded
+                                        )
+                                    },
+                                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier
+                                        .menuAnchor()
+                                        .fillMaxWidth()
+                                )
+
+                                ExposedDropdownMenu(
+                                    expanded = isDistrictDropdownExpanded,
+                                    onDismissRequest = { isDistrictDropdownExpanded = false }
+                                ) {
+                                    MAHARASHTRA_DISTRICTS.forEach { districtOption ->
+                                        DropdownMenuItem(
+                                            text = { Text(districtOption) },
+                                            onClick = {
+                                                selectedDistrict = districtOption
+                                                isDistrictDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     Button(
                         onClick = {
@@ -224,12 +304,11 @@ fun CaptureScreen(
                                 "${context.packageName}.fileprovider",
                                 file
                             )
-                            tempImageUri = uri
                             cameraLauncher.launch(uri)
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp),
+                            .height(54.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B5E20)),
                         shape = RoundedCornerShape(10.dp)
                     ) {
@@ -242,7 +321,7 @@ fun CaptureScreen(
                         onClick = { galleryLauncher.launch("image/*") },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp),
+                            .height(54.dp),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Icon(Icons.Default.Check, contentDescription = null)

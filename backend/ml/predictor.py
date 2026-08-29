@@ -102,7 +102,7 @@ def preprocess_image(image: Image.Image) -> np.ndarray:
         img_array = img_array.astype(np.uint8)
     else:
         # Standard [0, 1] normalization for MobileNet/TFLite models
-        img_array = img_array / 255.0
+        img_array = (img_array / 127.5) - 1.0
 
     # Adjust channel ordering if NCHW
     if INPUT_SHAPE[1] == 3 and len(img_array.shape) == 3:
