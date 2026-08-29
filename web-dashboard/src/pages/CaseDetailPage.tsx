@@ -17,8 +17,11 @@ function CaseDetailPage({
   onBack,
   onResolve,
 }: CaseDetailPageProps) {
-  const [expertDiagnosis, setExpertDiagnosis] = useState("");
-  const [prescription, setPrescription] = useState("");
+  const [expertDiagnosis, setExpertDiagnosis] =
+    useState("");
+
+  const [prescription, setPrescription] =
+    useState("");
 
   const handleResolve = () => {
     if (!expertDiagnosis.trim()) {
@@ -38,8 +41,42 @@ function CaseDetailPage({
     );
   };
 
+  // =========================================
+  // GPS VALUES
+  // =========================================
+
+  const latitude =
+    caseData.gps_lat ??
+    (caseData as any).lat ??
+    (caseData as any).latitude;
+
+  const longitude =
+    caseData.gps_long ??
+    (caseData as any).lng ??
+    (caseData as any).longitude;
+
+  const hasLocation =
+    latitude !== undefined &&
+    latitude !== null &&
+    longitude !== undefined &&
+    longitude !== null &&
+    latitude !== "" &&
+    longitude !== "";
+
+  // =========================================
+  // IMAGE
+  // =========================================
+
+  const imageUrl =
+    caseData.image_url ||
+    "/uploads/sample_leaf.jpg";
+
   return (
     <div className="detail-page">
+
+      {/* =====================================
+          BACK BUTTON
+      ====================================== */}
 
       <button
         className="back-button"
@@ -48,130 +85,297 @@ function CaseDetailPage({
         ← Back to Expert Triage
       </button>
 
+      {/* =====================================
+          HEADER
+      ====================================== */}
+
       <div className="detail-header">
+
         <div>
-          <h2>Case #{caseData.case_id}</h2>
+          <h2>
+            Case #{caseData.case_id}
+          </h2>
 
           <p>
-            Review case details and provide expert confirmation.
+            Review case details and provide
+            expert confirmation.
           </p>
         </div>
+
       </div>
+
+      {/* =====================================
+          CASE INFORMATION
+      ====================================== */}
 
       <div className="detail-grid">
 
-        {/* LEFT CARD */}
+        {/* ===================================
+            IMAGE
+        ==================================== */}
+
+        <div className="detail-card image-card">
+
+          <h3>
+            📷 User Uploaded Crop Image
+          </h3>
+
+          <div className="case-image-container">
+
+            <img
+              src={imageUrl}
+              alt="Farmer uploaded crop"
+              className="case-image"
+              onError={(event) => {
+                event.currentTarget.style.display =
+                  "none";
+              }}
+            />
+
+          </div>
+
+          <p className="image-caption">
+            Farmer-submitted image will appear here
+          </p>
+
+        </div>
+
+        {/* ===================================
+            CASE DETAILS
+        ==================================== */}
+
         <div className="detail-card">
 
-          <h3>Case Information</h3>
+          <h3>
+            Case Information
+          </h3>
 
-          {/* USER IMAGE */}
-          <div className="uploaded-image-placeholder">
-            <div className="upload-icon">📷</div>
+          <div className="information-grid">
 
-            <strong>User Uploaded Crop Image</strong>
-
-            <span>
-              Farmer-submitted image will appear here
-            </span>
-          </div>
-
-          {/* CASE DETAILS */}
-          <div className="info-grid">
-
-            <div>
+            <div className="info-item">
               <span>Farmer</span>
-              <strong>{caseData.farmer_name}</strong>
+              <strong>
+                {caseData.farmer_name}
+              </strong>
             </div>
 
-            <div>
+            <div className="info-item">
               <span>Crop</span>
-              <strong>{caseData.crop}</strong>
+              <strong>
+                {caseData.crop}
+              </strong>
             </div>
 
-            <div>
+            <div className="info-item">
               <span>District</span>
-              <strong>{caseData.district}</strong>
+              <strong>
+                {caseData.district}
+              </strong>
             </div>
 
-            <div>
+            <div className="info-item">
               <span>Severity</span>
-              <strong>{caseData.severity}</strong>
+
+              <strong>
+                <span
+                  className={`severity ${
+                    caseData.severity.toLowerCase()
+                  }`}
+                >
+                  {caseData.severity}
+                </span>
+              </strong>
             </div>
 
-          </div>
+            <div className="info-item">
 
-          {/* AI PREDICTION */}
-          <div className="prediction-box">
+              <span>
+                AI Predicted Disease
+              </span>
 
-            <span>AI Predicted Disease</span>
+              <strong>
+                {caseData.disease}
+              </strong>
 
-            <strong>{caseData.disease}</strong>
+            </div>
 
-            <small>
-              AI Confidence: {caseData.confidence}%
-            </small>
+            <div className="info-item">
 
-          </div>
+              <span>
+                AI Confidence
+              </span>
 
-          {/* LOCATION */}
-          <div className="gps-box">
+              <strong>
+                {caseData.confidence}%
+              </strong>
 
-            <span>Location</span>
+            </div>
 
-            <strong>
-              {caseData.latitude}, {caseData.longitude}
-            </strong>
+            <div className="info-item">
 
-            <small>
-              GPS coordinates of reported case
-            </small>
+              <span>
+                Status
+              </span>
+
+              <strong>
+                {caseData.status}
+              </strong>
+
+            </div>
+
+            <div className="info-item">
+
+              <span>
+                Report Date
+              </span>
+
+              <strong>
+                {caseData.date || "N/A"}
+              </strong>
+
+            </div>
 
           </div>
 
         </div>
 
-        {/* RIGHT CARD */}
-        <div className="detail-card">
+      </div>
 
-          <h3>Expert Review</h3>
+      {/* =====================================
+          LOCATION
+      ====================================== */}
+
+      <div className="detail-card location-card">
+
+        <h3>
+          📍 Location
+        </h3>
+
+        {hasLocation ? (
+
+          <div>
+
+            <strong>
+              {Number(latitude).toFixed(6)},{" "}
+              {Number(longitude).toFixed(6)}
+            </strong>
+
+            <p>
+              GPS coordinates of reported case
+            </p>
+
+            <a
+              href={`https://www.google.com/maps?q=${latitude},${longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View on Google Maps
+            </a>
+
+          </div>
+
+        ) : (
+
+          <div>
+
+            <strong>
+              Location unavailable
+            </strong>
+
+            <p>
+              GPS coordinates were not provided
+              for this case.
+            </p>
+
+          </div>
+
+        )}
+
+      </div>
+
+      {/* =====================================
+          EXPERT REVIEW
+      ====================================== */}
+
+      <div className="detail-card expert-review-card">
+
+        <h3>
+          👨‍🌾 Expert Review
+        </h3>
+
+        <p>
+          Provide your expert diagnosis and
+          recommended advisory before resolving
+          this case.
+        </p>
+
+        {/* DIAGNOSIS */}
+
+        <div className="form-group">
 
           <label>
             Expert Diagnosis
           </label>
 
           <textarea
+            rows={4}
             value={expertDiagnosis}
-            onChange={(e) =>
-              setExpertDiagnosis(e.target.value)
+            onChange={(event) =>
+              setExpertDiagnosis(
+                event.target.value
+              )
             }
-            placeholder="Enter the expert-confirmed diagnosis..."
+            placeholder="Enter confirmed disease diagnosis..."
           />
 
+        </div>
+
+        {/* PRESCRIPTION */}
+
+        <div className="form-group">
+
           <label>
-            Advisory / Prescription
+            Prescription / Advisory
           </label>
 
           <textarea
+            rows={5}
             value={prescription}
-            onChange={(e) =>
-              setPrescription(e.target.value)
+            onChange={(event) =>
+              setPrescription(
+                event.target.value
+              )
             }
-            placeholder="Enter treatment, advisory or prescription..."
+            placeholder="Enter treatment or advisory for the farmer..."
           />
+
+        </div>
+
+        {/* ACTIONS */}
+
+        <div className="detail-actions">
+
+          <button
+            className="cancel-button"
+            onClick={onBack}
+          >
+            Cancel
+          </button>
 
           <button
             className="resolve-button"
             onClick={handleResolve}
           >
-            Resolve Case
+            ✓ Confirm & Resolve Case
           </button>
 
         </div>
 
       </div>
+
     </div>
   );
 }
 
 export default CaseDetailPage;
+

@@ -46,7 +46,7 @@ else:
 # ============================================================
 
 TEMPERATURE = 1.0
-CONFIDENCE_THRESHOLD = 0.70
+CONFIDENCE_THRESHOLD = 0.75
 
 if os.path.exists(CALIBRATION_PATH):
     try:

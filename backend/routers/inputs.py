@@ -1,15 +1,21 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+import sqlite3
+import uuid
 
 from backend.ml.predictor import predict
 from backend.rag.retriever import get_disease_information
 from backend.schemas.case_schema import PredictionResponse
-from backend.database import get_db, Case
+
 
 router = APIRouter()
 
+DB_PATH = "data/peekrakshak.db"
 
-CONFIDENCE_THRESHOLD = 0.85
+# =========================================================
+# CONFIDENCE THRESHOLD
+# =========================================================
+
+CONFIDENCE_THRESHOLD = 0.75
 
 
 ALLOWED_IMAGE_TYPES = {
@@ -33,12 +39,6 @@ def list_inputs():
 
 # =========================================================
 # PLANT DISEASE PREDICTION
-#
-# IMPORTANT:
-# Ollama/LLM is imported INSIDE the request handler.
-# Therefore the dashboard backend can start without Ollama.
-#
-# Ollama is only needed when /predict is actually called.
 # =========================================================
 
 @router.post(
@@ -50,7 +50,7 @@ async def predict_disease(
     language: str = Form("en"),
     district: str = Form("Yavatmal"),
     farmer_name: str = Form("App Farmer"),
-    db: Session = Depends(get_db)
+    farmer_id: str = Form("MH_YAV_001"),
 ):
 
     # -----------------------------------------------------
@@ -64,7 +64,7 @@ async def predict_disease(
         )
 
     # -----------------------------------------------------
-    # 2. Validate image type
+    # 2. Validate image
     # -----------------------------------------------------
 
     if image.content_type not in ALLOWED_IMAGE_TYPES:
@@ -109,70 +109,131 @@ async def predict_disease(
         )
 
     disease_key = prediction["disease"]
-    confidence = prediction["confidence"]
+    confidence = float(prediction["confidence"])
+    crop = prediction["crop"]
 
-    # -----------------------------------------------------
-    # 5. RAG retrieval
-    # -----------------------------------------------------
-
-    disease_info = get_disease_information(
-        disease_key
+    print(
+        f"[ML] Disease={disease_key}, "
+        f"Confidence={confidence:.2%}"
     )
 
-    if disease_info is None:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                "No knowledge-base information found "
-                f"for disease: {disease_key}"
-            ),
+    # =====================================================
+    # 5. HIGH CONFIDENCE
+    #
+    # >= 75%
+    #
+    # ML → RAG → LLM → Mobile App
+    # =====================================================
+
+    if confidence >= CONFIDENCE_THRESHOLD:
+
+        print("[ROUTING] HIGH CONFIDENCE → DIRECT MOBILE")
+
+        disease_info = get_disease_information(
+            disease_key
         )
 
-    # -----------------------------------------------------
-    # 6. LLM generation
-    #
-    # Import Ollama-dependent code ONLY when /predict
-    # is actually requested.
-    # -----------------------------------------------------
+        if disease_info is None:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    "No knowledge-base information found "
+                    f"for disease: {disease_key}"
+                ),
+            )
 
-    try:
+        try:
 
-        from backend.rag.llm import generate_response
+            from backend.rag.llm import generate_response
 
-        response = generate_response(
-            disease_info=disease_info,
+            response = generate_response(
+                disease_info=disease_info,
+                confidence=confidence,
+                language=language,
+            )
+
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"LLM generation failed: {str(e)}",
+            )
+
+        return PredictionResponse(
+            case_id=None,
+            crop=crop,
+            disease=disease_key,
             confidence=confidence,
+            status="Direct Diagnosis",
+            response=response,
             language=language,
         )
 
+    # =====================================================
+    # 6. LOW CONFIDENCE
+    #
+    # < 75%
+    #
+    # ML → DATABASE → DASHBOARD → EXPERT
+    # =====================================================
+
+    print("[ROUTING] LOW CONFIDENCE → EXPERT DASHBOARD")
+
+    case_id = "CASE_" + uuid.uuid4().hex[:8].upper()
+
+    conn = sqlite3.connect(DB_PATH)
+
+    try:
+
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            INSERT INTO cases (
+                case_id,
+                farmer_id,
+                district,
+                crop,
+                disease_detected,
+                confidence,
+                status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                case_id,
+                farmer_id,
+                district,
+                crop,
+                disease_key,
+                confidence,
+                "PENDING_EXPERT",
+            ),
+        )
+
+        conn.commit()
+
     except Exception as e:
+
+        conn.rollback()
+
         raise HTTPException(
             status_code=500,
-            detail=f"LLM generation failed: {str(e)}",
+            detail=f"Failed to create expert case: {str(e)}",
         )
 
-    # 7. Save case to database for Dashboard & Outbreak alerts
-    try:
-        new_case = Case(
-            farmer_name=farmer_name,
-            district=district,
-            crop=prediction["crop"],
-            disease=disease_key,
-            confidence=confidence,
-            severity="High" if confidence >= CONFIDENCE_THRESHOLD else "Medium",
-            status="Pending Expert"
-        )
-        db.add(new_case)
-        db.commit()
-    except Exception as db_err:
-        print(f"[WARN] Failed to log case into DB: {db_err}")
+    finally:
+        conn.close()
 
-    # 8. Return response
     return PredictionResponse(
-        crop=prediction["crop"],
+        case_id=case_id,
+        crop=crop,
         disease=disease_key,
         confidence=confidence,
-        status=prediction["status"],
-        response=response,
+        status="Pending Expert",
+        response=(
+            "The AI confidence is below 75%. "
+            "Your case has been sent to an agricultural "
+            "expert for verification."
+        ),
         language=language,
     )

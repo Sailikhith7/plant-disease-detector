@@ -1,21 +1,14 @@
-const API_BASE_URL = "http://localhost:8000";
-
+const API_BASE_URL = "http://127.0.0.1:8000/api";
 
 // =========================================================
-// GET CASES
-// Backend:
-// GET /api/cases/
+// GET ALL CASES
 // =========================================================
 
 export async function getCases() {
-  const response = await fetch(
-    `${API_BASE_URL}/api/cases/`
-  );
+  const response = await fetch(`${API_BASE_URL}/cases/`);
 
   if (!response.ok) {
-    throw new Error(
-      `Failed to fetch cases (${response.status})`
-    );
+    throw new Error(`Failed to fetch cases (${response.status})`);
   }
 
   const data = await response.json();
@@ -25,14 +18,78 @@ export async function getCases() {
 
 
 // =========================================================
-// GET ANALYTICS
+// GET SINGLE CASE
+// =========================================================
+
+export async function getCase(caseId: string) {
+  const response = await fetch(
+    `${API_BASE_URL}/cases/${encodeURIComponent(caseId)}`
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+
+    throw new Error(
+      data?.detail || `Failed to fetch case (${response.status})`
+    );
+  }
+
+  return await response.json();
+}
+
+
+// =========================================================
+// RESOLVE CASE
+// =========================================================
 // Backend:
-// GET /api/analytics/
+// POST /api/cases/{case_id}/resolve
+//
+// Body:
+// {
+//   "expert_response": "..."
+// }
+// =========================================================
+
+export async function resolveCase(
+  caseId: string,
+  expertResponse: string
+) {
+  const response = await fetch(
+    `${API_BASE_URL}/cases/${encodeURIComponent(caseId)}/resolve`,
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+      },
+
+      body: JSON.stringify({
+        expert_response: expertResponse,
+      }),
+    }
+  );
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      data?.detail ||
+        data?.message ||
+        `Failed to resolve case (${response.status})`
+    );
+  }
+
+  return data;
+}
+
+
+// =========================================================
+// GET ANALYTICS
 // =========================================================
 
 export async function getAnalytics() {
   const response = await fetch(
-    `${API_BASE_URL}/api/analytics/`
+    `${API_BASE_URL}/analytics/`
   );
 
   if (!response.ok) {
@@ -49,15 +106,13 @@ export async function getAnalytics() {
 
 // =========================================================
 // GET ACTIVE OUTBREAKS
-// Backend:
-// GET /api/alerts/outbreaks?threshold=5
 // =========================================================
 
 export async function getOutbreaks(
   threshold = 5
 ) {
   const response = await fetch(
-    `${API_BASE_URL}/api/alerts/outbreaks?threshold=${threshold}`
+    `${API_BASE_URL}/alerts/outbreaks?threshold=${threshold}`
   );
 
   if (!response.ok) {
@@ -72,8 +127,6 @@ export async function getOutbreaks(
 
 // =========================================================
 // SEND BROADCAST ADVISORY
-// Backend:
-// POST /api/alerts/broadcast
 // =========================================================
 
 export async function sendBroadcastAdvisory(
@@ -85,13 +138,12 @@ export async function sendBroadcastAdvisory(
   }
 ) {
   const response = await fetch(
-    `${API_BASE_URL}/api/alerts/broadcast`,
+    `${API_BASE_URL}/alerts/broadcast`,
     {
       method: "POST",
 
       headers: {
-        "Content-Type":
-          "application/json",
+        "Content-Type": "application/json",
       },
 
       body: JSON.stringify(payload),

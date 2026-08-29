@@ -6,15 +6,25 @@ export type MockCase = {
   confidence: number;
   district: string;
   severity: "High" | "Medium" | "Low";
-  status: "Pending Expert" | "Resolved";
+  status: string;
 
-  latitude: number;
-  longitude: number;
+  // Location fields
+  latitude?: number;
+  longitude?: number;
+  gps_lat?: number;
+  gps_long?: number;
 
+  // Case details
+  image_url?: string;
+  date?: string;
+
+  // Resolution details
   resolution_date?: string;
   expert_diagnosis?: string;
   prescription?: string;
 };
+
+
 
 export const mockCases: MockCase[] = [
   // =========================================
@@ -23,6 +33,7 @@ export const mockCases: MockCase[] = [
   // =========================================
 
   {
+    
     case_id: 101,
     farmer_name: "Ramesh Patil",
     crop: "Cotton",

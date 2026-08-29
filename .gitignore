@@ -44,3 +44,4 @@ backend/uploads/*
 .env
 .env.*
 !.env.example
+data/*.db
