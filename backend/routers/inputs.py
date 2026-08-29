@@ -5,7 +5,14 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 
 from backend.ml.predictor import predict
 from backend.rag.retriever import get_disease_information
+from backend.rag.llm import generate_response
 from backend.schemas.case_schema import PredictionResponse
+
+try:
+    from backend.services.voice_service import generate_regional_audio
+    voice_service_loaded = True
+except ImportError:
+    voice_service_loaded = False
 
 router = APIRouter()
 
@@ -92,13 +99,14 @@ async def predict_disease(
     if not image_bytes:
         raise HTTPException(status_code=400, detail="Uploaded image is empty.")
 
+    # 1. ML Prediction
     try:
         prediction = predict(image_bytes)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"ML prediction failed: {str(e)}")
 
-    disease_key = prediction["disease"]
-    confidence = float(prediction["confidence"])
+    disease_key = prediction.get("disease", "Unknown")
+    confidence = float(prediction.get("confidence", 0.0))
     crop_detected = prediction.get("crop", crop)
 
     if confidence >= 0.85:
@@ -110,7 +118,7 @@ async def predict_disease(
 
     case_id = "CASE_" + uuid.uuid4().hex[:8].upper()
 
-    # 1. Save uploaded image file to uploads directory
+    # 2. Save uploaded image file to disk
     file_ext = image.filename.split(".")[-1] if image.filename and "." in image.filename else "jpg"
     image_filename = f"{case_id}.{file_ext}"
     image_disk_path = os.path.join(UPLOAD_DIR, image_filename)
@@ -120,14 +128,13 @@ async def predict_disease(
     except Exception as e:
         print(f"[IMAGE SAVE WARNING] Could not write image to disk: {e}")
 
-    # Relative path that FastAPI static mount serves
     image_url = f"http://127.0.0.1:8000/uploads/{image_filename}"
 
-    # 2. Lookup district coordinates accurately
+    # 3. Lookup district coordinates
     normalized_district = district.strip().lower()
     lat, lon = DISTRICT_COORDINATES.get(normalized_district, (20.3888, 78.1204))
 
-    # 3. Save into SQLite database
+    # 4. Save into SQLite database
     conn = sqlite3.connect(DB_PATH)
     try:
         cursor = conn.cursor()
@@ -171,22 +178,43 @@ async def predict_disease(
     finally:
         conn.close()
 
-    advisory_response = (
-        "The AI confidence is below 75%. "
-        "Your case has been logged for expert triage and manual prescription."
-    )
+    # 5. Advisory Response via RAG + LLM
+    disease_info = get_disease_information(disease_key)
+    if not disease_info:
+        disease_info = {
+            "name": disease_key,
+            "management": ["Consult local agricultural officer."],
+            "prevention": ["Maintain field sanitation."],
+        }
+
+    advisory_response = ""
     if confidence >= CONFIDENCE_THRESHOLD:
-        disease_info = get_disease_information(disease_key)
-        if disease_info:
-            try:
-                from backend.rag.llm import generate_response
-                advisory_response = generate_response(
-                    disease_info=disease_info,
-                    confidence=confidence,
-                    language=language,
-                )
-            except Exception as e:
-                print(f"[LLM WARNING] Advisory generation skipped: {e}")
+        try:
+            advisory_response = generate_response(
+                disease_info=disease_info,
+                confidence=confidence,
+                language=language,
+            )
+        except Exception as e:
+            print(f"[LLM WARNING] Advisory generation failed: {e}")
+
+    # Safe Fallback if LLM failed or low confidence
+    if not advisory_response:
+        mgmt = " ".join(disease_info.get("management", []))
+        if language == "mr":
+            advisory_response = f"पिकावर {disease_info.get('name', disease_key)} रोगाची लक्षणे आढळली आहेत. व्यवस्थापन: {mgmt}"
+        elif language == "hi":
+            advisory_response = f"फसल पर {disease_info.get('name', disease_key)} के लक्षण पाए गए हैं। प्रबंधन: {mgmt}"
+        else:
+            advisory_response = f"Symptoms of {disease_info.get('name', disease_key)} detected. Management: {mgmt}"
+
+    # 6. Generate Regional Audio (Marathi / Hindi / English)
+    audio_path = None
+    if voice_service_loaded:
+        try:
+            audio_path = generate_regional_audio(text_to_speak=advisory_response, language=language)
+        except Exception as e:
+            print(f"[AUDIO WARNING] Voice synthesis skipped: {e}")
 
     return PredictionResponse(
         case_id=case_id,
@@ -196,4 +224,5 @@ async def predict_disease(
         status="Pending Expert",
         response=advisory_response,
         language=language,
+        audio_url=audio_path,
     )
