@@ -9,11 +9,7 @@ import {
 import "leaflet/dist/leaflet.css";
 
 import type { MockCase } from "../data/mockCases";
-
-import {
-  getOutbreaks,
-  sendBroadcastAdvisory,
-} from "../api/caseApi";
+import { getOutbreaks, sendBroadcastAdvisory } from "../api/caseApi";
 
 type StateHotspotMapProps = {
   cases: MockCase[];
@@ -77,12 +73,6 @@ const DISTRICT_COORDINATES: Record<string, [number, number]> = {
   mumbai: [19.076, 72.8777],
 };
 
-function getRiskRank(risk?: string) {
-  if (risk === "High") return 3;
-  if (risk === "Medium") return 2;
-  return 1;
-}
-
 function getRiskColor(risk?: string) {
   if (risk === "High") return "#dc2626";
   if (risk === "Medium") return "#f59e0b";
@@ -91,33 +81,21 @@ function getRiskColor(risk?: string) {
 
 function StateHotspotMap({ cases }: StateHotspotMapProps) {
   const [districtData, setDistrictData] = useState<any>(null);
-
-  const [outbreaks, setOutbreaks] = useState<Outbreak[]>([]);
-
-  const [selectedOutbreak, setSelectedOutbreak] =
-    useState<Outbreak | null>(null);
-
+  const [apiOutbreaks, setApiOutbreaks] = useState<Outbreak[]>([]);
+  const [selectedOutbreak, setSelectedOutbreak] = useState<Outbreak | null>(null);
   const [officerMsg, setOfficerMsg] = useState("");
-
   const [isModalOpen, setIsModalOpen] = useState(false);
-
   const [isBroadcasting, setIsBroadcasting] = useState(false);
-
   const [banner, setBanner] = useState<string | null>(null);
-
   const [error, setError] = useState<string | null>(null);
 
   // =====================================================
   // LOAD MAHARASHTRA DISTRICT GEOJSON
   // =====================================================
-
   useEffect(() => {
     fetch("/maharashtra_districts.geojson")
       .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to load district GeoJSON");
-        }
-
+        if (!response.ok) throw new Error("Failed to load district GeoJSON");
         return response.json();
       })
       .then((data) => setDistrictData(data))
@@ -127,56 +105,67 @@ function StateHotspotMap({ cases }: StateHotspotMapProps) {
   }, []);
 
   // =====================================================
-  // LOAD OUTBREAKS
+  // LOAD OUTBREAKS FROM API
   // =====================================================
-
   useEffect(() => {
     async function loadOutbreaks() {
       try {
         setError(null);
-
         const data = await getOutbreaks(OUTBREAK_THRESHOLD);
-
-        /*
-         * Backend may return either:
-         *   [...]
-         * or:
-         *   { outbreaks: [...] }
-         */
-
         const outbreakList = Array.isArray(data)
           ? data
           : data?.outbreaks ?? [];
-
-        setOutbreaks(outbreakList);
+        setApiOutbreaks(outbreakList);
       } catch (err) {
         console.error("Outbreak loading error:", err);
-
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load outbreaks."
-        );
       }
     }
-
     loadOutbreaks();
-  }, []);
+  }, [cases]);
 
   // =====================================================
-  // CREATE DISTRICT HOTSPOTS
+  // DERIVED OUTBREAKS (combines API + direct live cases >= threshold)
   // =====================================================
+  const outbreaks = useMemo<Outbreak[]>(() => {
+    if (apiOutbreaks.length > 0) return apiOutbreaks;
 
+    // Direct fallback from live cases prop
+    const grouped: Record<string, { district: string; crop: string; disease: string; count: number }> = {};
+    cases.forEach((c: any) => {
+      if (c.status && c.status.toLowerCase().includes("resolve")) return;
+      const key = `${c.district || "Yavatmal"}_${c.crop || "Cotton"}_${c.disease || "Pink Bollworm"}`;
+      if (!grouped[key]) {
+        grouped[key] = {
+          district: c.district || "Yavatmal",
+          crop: c.crop || "Cotton",
+          disease: c.disease || "Pink Bollworm",
+          count: 0,
+        };
+      }
+      grouped[key].count += 1;
+    });
+
+    return Object.values(grouped)
+      .filter((g) => g.count >= OUTBREAK_THRESHOLD)
+      .map((g) => ({
+        district: g.district,
+        crop: g.crop,
+        disease: g.disease,
+        case_count: g.count,
+      }));
+  }, [apiOutbreaks, cases]);
+
+  // =====================================================
+  // CREATE DISTRICT HOTSPOTS (High Risk when cases >= 5)
+  // =====================================================
   const hotspots = useMemo<Hotspot[]>(() => {
     const grouped: Record<string, MockCase[]> = {};
 
     cases.forEach((item) => {
       const districtKey = (item.district || "Yavatmal").trim();
-
       if (!grouped[districtKey]) {
         grouped[districtKey] = [];
       }
-
       grouped[districtKey].push(item);
     });
 
@@ -184,40 +173,35 @@ function StateHotspotMap({ cases }: StateHotspotMapProps) {
       .map(([districtName, districtCases]) => {
         const firstCase: any = districtCases[0];
 
-        const highestRisk = districtCases.reduce(
-          (highest, current) => {
-            return getRiskRank(current.severity) >
-              getRiskRank(highest.severity)
-              ? current
-              : highest;
-          },
-          firstCase
-        );
-
         const diseases = [
           ...new Set(
-            districtCases.map(
-              (item) => item.disease || "Unknown Disease"
-            )
+            districtCases.map((item) => item.disease || "Unknown Disease")
           ),
         ];
 
         const crops = [
           ...new Set(
-            districtCases.map(
-              (item: any) => item.crop || "Unknown Crop"
-            )
+            districtCases.map((item: any) => item.crop || "Unknown Crop")
           ),
         ];
 
-        // Normalize district name for coordinate lookup
+        const count = districtCases.length;
+        // Mark as High Risk if >= threshold (5 cases) or explicitly marked High
+        const computedRisk: "High" | "Medium" | "Low" =
+          count >= OUTBREAK_THRESHOLD
+            ? "High"
+            : districtCases.some((c) => c.severity === "High")
+            ? "High"
+            : districtCases.some((c) => c.severity === "Medium")
+            ? "Medium"
+            : "Low";
+
         const normalizedDistrict = districtName
           .toLowerCase()
           .replace(/[\s_-]+/g, "");
 
         const fallbackCoords =
-          DISTRICT_COORDINATES[normalizedDistrict] ||
-          [20.3888, 78.1204];
+          DISTRICT_COORDINATES[normalizedDistrict] || [20.3888, 78.1204];
 
         const lat = Number(
           firstCase.gps_lat ??
@@ -239,43 +223,22 @@ function StateHotspotMap({ cases }: StateHotspotMapProps) {
           crop: crops.join(", "),
           latitude: isNaN(lat) ? fallbackCoords[0] : lat,
           longitude: isNaN(lng) ? fallbackCoords[1] : lng,
-          cases: districtCases.length,
-          risk:
-            (highestRisk?.severity as
-              | "High"
-              | "Medium"
-              | "Low") || "Medium",
+          cases: count,
+          risk: computedRisk,
         };
       })
-      .filter(
-        (h) =>
-          !isNaN(h.latitude) &&
-          !isNaN(h.longitude)
-      );
+      .filter((h) => !isNaN(h.latitude) && !isNaN(h.longitude));
   }, [cases]);
-
-  // =====================================================
-  // DISTRICT RISK
-  // =====================================================
 
   function getDistrictRisk(districtName: string) {
     const hotspot = hotspots.find(
-      (item) =>
-        item.district.toLowerCase() ===
-        districtName.toLowerCase()
+      (item) => item.district.toLowerCase() === districtName.toLowerCase()
     );
-
     return hotspot?.risk ?? "Low";
   }
 
-  // =====================================================
-  // DISTRICT STYLE
-  // =====================================================
-
   function getDistrictStyle(feature?: any) {
-    const districtName =
-      feature?.properties?.district ?? "";
-
+    const districtName = feature?.properties?.district ?? "";
     const risk = getDistrictRisk(districtName);
 
     return {
@@ -287,34 +250,20 @@ function StateHotspotMap({ cases }: StateHotspotMapProps) {
     };
   }
 
-  // =====================================================
-  // OPEN BROADCAST MODAL
-  // =====================================================
-
   function openBroadcast(outbreak: Outbreak) {
     setSelectedOutbreak(outbreak);
-
     setOfficerMsg(
-      `Advisory: ${outbreak.disease} has been detected in ${outbreak.district}. Please take appropriate preventive measures for ${outbreak.crop}.`
+      `🚨 कृषी विभाग चेतावणी: ${outbreak.district} जिल्ह्यात ${outbreak.crop} पिकावर ${outbreak.disease} रोगाचा प्रादुर्भाव वाढला आहे. शेतकऱ्यांनी तातडीने प्रतिबंधात्मक उपाययोजना कराव्यात.`
     );
-
     setBanner(null);
     setError(null);
     setIsModalOpen(true);
   }
 
-  // =====================================================
-  // SEND BROADCAST
-  // =====================================================
-
   async function handleBroadcast() {
-    if (!selectedOutbreak) {
-      return;
-    }
-
+    if (!selectedOutbreak) return;
     if (!officerMsg.trim()) {
       setError("Please enter an advisory message.");
-
       return;
     }
 
@@ -331,88 +280,55 @@ function StateHotspotMap({ cases }: StateHotspotMapProps) {
       });
 
       setBanner(
-        `Advisory successfully broadcast to ${selectedOutbreak.district}.`
+        `Advisory successfully broadcast to ${selectedOutbreak.district} farmers via Telegram!`
       );
-
       setIsModalOpen(false);
       setSelectedOutbreak(null);
       setOfficerMsg("");
     } catch (err) {
       console.error("Broadcast error:", err);
-
       setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to broadcast advisory."
+        err instanceof Error ? err.message : "Failed to broadcast advisory."
       );
     } finally {
       setIsBroadcasting(false);
     }
   }
 
-  // =====================================================
-  // CASE COUNTS
-  // =====================================================
-
   const pendingCases = cases.filter(
-    (item) => item.status === "Pending Expert"
+    (item) => item.status === "Pending Expert" || item.status === "OPEN"
   ).length;
 
-  const highRiskCases = cases.filter(
-    (item) => item.severity === "High"
-  ).length;
-
-  const mediumRiskCases = cases.filter(
-    (item) => item.severity === "Medium"
-  ).length;
-
-  const lowRiskCases = cases.filter(
-    (item) => item.severity === "Low"
-  ).length;
-
-  // =====================================================
-  // UI
-  // =====================================================
+  const highRiskCount = hotspots.filter((h) => h.risk === "High").length;
+  const mediumRiskCount = hotspots.filter((h) => h.risk === "Medium").length;
+  const lowRiskCount = hotspots.filter((h) => h.risk === "Low").length;
 
   return (
     <div className="map-page">
-
       {/* HEADER */}
-
       <div className="map-header">
-
         <div>
           <h2>State Outbreak Intelligence</h2>
-
-          <p>
-            Monitor district-level crop disease
-            hotspots across Maharashtra.
-          </p>
+          <p>Monitor district-level crop disease hotspots across Maharashtra.</p>
         </div>
 
         <div className="map-summary">
-
           <div>
             <span>Total Cases</span>
             <strong>{cases.length}</strong>
           </div>
-
           <div>
             <span>Pending Cases</span>
             <strong>{pendingCases}</strong>
           </div>
-
           <div>
             <span>District Hotspots</span>
             <strong>{hotspots.length}</strong>
           </div>
-
         </div>
-
       </div>
 
-      {/* SUCCESS BANNER */}
-
+      {/* BANNER NOTIFICATIONS */}
       {banner && (
         <div
           style={{
@@ -427,8 +343,6 @@ function StateHotspotMap({ cases }: StateHotspotMapProps) {
           ✅ {banner}
         </div>
       )}
-
-      {/* ERROR BANNER */}
 
       {error && (
         <div
@@ -445,12 +359,8 @@ function StateHotspotMap({ cases }: StateHotspotMapProps) {
         </div>
       )}
 
-      {/* =================================================
-          MAP
-      ================================================= */}
-
+      {/* MAP VIEW */}
       <div className="map-card">
-
         <MapContainer
           center={[19.7515, 75.7139]}
           zoom={7}
@@ -462,28 +372,22 @@ function StateHotspotMap({ cases }: StateHotspotMapProps) {
             borderRadius: "8px",
           }}
         >
-
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
           {/* DISTRICT BORDERS */}
-
           {districtData && (
             <GeoJSON
               data={districtData}
               style={getDistrictStyle}
               onEachFeature={(feature, layer) => {
-
                 const districtName =
-                  feature?.properties?.district ??
-                  "Unknown District";
-
+                  feature?.properties?.district ?? "Unknown District";
                 const hotspot = hotspots.find(
                   (item) =>
-                    item.district.toLowerCase() ===
-                    districtName.toLowerCase()
+                    item.district.toLowerCase() === districtName.toLowerCase()
                 );
 
                 layer.bindPopup(`
@@ -492,97 +396,52 @@ function StateHotspotMap({ cases }: StateHotspotMapProps) {
                   Reported Cases: ${hotspot?.cases ?? 0}
                 `);
 
-                layer.bindTooltip(
-                  districtName,
-                  { sticky: true }
-                );
+                layer.bindTooltip(districtName, { sticky: true });
               }}
             />
           )}
 
-          {/* HOTSPOT MARKERS */}
-
+          {/* HOTSPOT CIRCLE MARKERS */}
           {hotspots.map((hotspot) => (
-
             <CircleMarker
               key={hotspot.district}
-              center={[
-                hotspot.latitude,
-                hotspot.longitude,
-              ]}
-              radius={12}
+              center={[hotspot.latitude, hotspot.longitude]}
+              radius={14}
               pathOptions={{
                 color: getRiskColor(hotspot.risk),
                 fillColor: getRiskColor(hotspot.risk),
                 fillOpacity: 0.9,
               }}
             >
-
               <Popup>
-
-                <strong>
-                  {hotspot.district}
-                </strong>
-
+                <strong>{hotspot.district}</strong>
                 <br />
-
                 Crop: {hotspot.crop}
-
                 <br />
-
                 Disease: {hotspot.disease}
-
                 <br />
-
                 Cases: {hotspot.cases}
-
                 <br />
-
                 Risk: {hotspot.risk}
-
               </Popup>
-
             </CircleMarker>
-
           ))}
-
         </MapContainer>
-
       </div>
 
-      {/* =================================================
-          OUTBREAK TABLE
-      ================================================= */}
-
+      {/* CRITICAL OUTBREAKS TABLE */}
       <div className="outbreak-table-card">
-
         <div className="outbreak-table-header">
-
           <div>
-
-            <h3>
-              🚨 Critical Outbreak Zones
-              Requiring Advisory Broadcast
-            </h3>
-
-            <p>
-              Automatically detected when
-              complaints reach{" "}
-              {OUTBREAK_THRESHOLD}.
-            </p>
-
+            <h3>🚨 Critical Outbreak Zones Requiring Advisory Broadcast</h3>
+            <p>Automatically detected when complaints reach {OUTBREAK_THRESHOLD}.</p>
           </div>
-
         </div>
 
         {outbreaks.length > 0 ? (
-
           <div className="outbreak-table-wrapper">
-
             <table>
-
               <thead>
-
                 <tr>
                   <th>District</th>
                   <th>Target Crop</th>
@@ -590,236 +449,132 @@ function StateHotspotMap({ cases }: StateHotspotMapProps) {
                   <th>Reported Complaints</th>
                   <th>Action</th>
                 </tr>
-
               </thead>
-
               <tbody>
-
-                {outbreaks.map(
-                  (item, index) => (
-
-                    <tr
-                      key={`${item.district}-${item.crop}-${index}`}
-                    >
-
-                      <td>
-                        <strong>
-                          {item.district}
-                        </strong>
-                      </td>
-
-                      <td>
-                        {item.crop}
-                      </td>
-
-                      <td>
-                        <span className="severity high">
-                          {item.disease}
-                        </span>
-                      </td>
-
-                      <td>
-                        <span className="outbreak-count">
-                          {item.case_count}
-                          {" complaints"}
-                        </span>
-                      </td>
-
-                      <td>
-
-                        <button
-                          className="broadcast-button"
-                          onClick={() =>
-                            openBroadcast(item)
-                          }
-                        >
-                          📢 Broadcast Advisory
-                        </button>
-
-                      </td>
-
-                    </tr>
-
-                  )
-                )}
-
+                {outbreaks.map((item, index) => (
+                  <tr key={`${item.district}-${item.crop}-${index}`}>
+                    <td>
+                      <strong>{item.district}</strong>
+                    </td>
+                    <td>{item.crop}</td>
+                    <td>
+                      <span className="severity high">{item.disease}</span>
+                    </td>
+                    <td>
+                      <span className="outbreak-count">
+                        {item.case_count} complaints
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        className="broadcast-button"
+                        onClick={() => openBroadcast(item)}
+                      >
+                        📢 Broadcast Advisory
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
-
             </table>
-
           </div>
-
         ) : (
-
-          <div className="outbreak-empty">
-            No critical outbreaks detected.
-          </div>
-
+          <div className="outbreak-empty">No critical outbreaks detected.</div>
         )}
-
       </div>
 
-      {/* =================================================
-          RISK LEGEND
-      ================================================= */}
-
+      {/* RISK LEGEND */}
       <div className="risk-legend">
-
         <div>
           <span className="legend-dot high-dot"></span>
-          High Risk ({highRiskCases})
+          High Risk ({highRiskCount})
         </div>
-
         <div>
           <span className="legend-dot medium-dot"></span>
-          Medium Risk ({mediumRiskCases})
+          Medium Risk ({mediumRiskCount})
         </div>
-
         <div>
           <span className="legend-dot low-dot"></span>
-          Low Risk ({lowRiskCases})
+          Low Risk ({lowRiskCount})
         </div>
-
       </div>
 
-      {/* =================================================
-          BROADCAST MODAL
-      ================================================= */}
-
+      {/* BROADCAST MODAL */}
       {isModalOpen && selectedOutbreak && (
-
         <div
           className="modal-overlay"
           onClick={() => {
-            if (!isBroadcasting) {
-              setIsModalOpen(false);
-            }
+            if (!isBroadcasting) setIsModalOpen(false);
           }}
         >
-
           <div
             className="broadcast-modal"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
+            onClick={(event) => event.stopPropagation()}
           >
-
             <div className="modal-header">
-
               <div>
-
-                <h3>
-                  Broadcast Advisory
-                </h3>
-
-                <p>
-                  Send a custom advisory
-                  to affected farmers.
-                </p>
-
+                <h3>Broadcast Advisory</h3>
+                <p>Send official advisory to affected farmers via Telegram & SMS.</p>
               </div>
-
               <button
                 className="modal-close"
-                onClick={() =>
-                  !isBroadcasting &&
-                  setIsModalOpen(false)
-                }
+                onClick={() => !isBroadcasting && setIsModalOpen(false)}
                 disabled={isBroadcasting}
               >
                 ×
               </button>
-
             </div>
-
-            {/* AUTO FILLED DETAILS */}
 
             <div className="broadcast-details">
-
               <div>
                 <span>District</span>
-
-                <strong>
-                  {selectedOutbreak.district}
-                </strong>
+                <strong>{selectedOutbreak.district}</strong>
               </div>
-
               <div>
                 <span>Crop</span>
-
-                <strong>
-                  {selectedOutbreak.crop}
-                </strong>
+                <strong>{selectedOutbreak.crop}</strong>
               </div>
-
               <div>
                 <span>Disease</span>
-
-                <strong>
-                  {selectedOutbreak.disease}
-                </strong>
+                <strong>{selectedOutbreak.disease}</strong>
               </div>
-
               <div>
                 <span>Complaints</span>
-
-                <strong>
-                  {selectedOutbreak.case_count}
-                </strong>
+                <strong>{selectedOutbreak.case_count}</strong>
               </div>
-
             </div>
 
-            <label className="broadcast-label">
-              Custom Advisory Message
-            </label>
-
+            <label className="broadcast-label">Custom Advisory Message</label>
             <textarea
               className="broadcast-textarea"
               rows={5}
               value={officerMsg}
-              onChange={(event) =>
-                setOfficerMsg(
-                  event.target.value
-                )
-              }
+              onChange={(event) => setOfficerMsg(event.target.value)}
               placeholder="Enter Marathi or English advisory..."
               disabled={isBroadcasting}
             />
 
             <div className="modal-actions">
-
               <button
                 className="cancel-button"
-                onClick={() =>
-                  setIsModalOpen(false)
-                }
+                onClick={() => setIsModalOpen(false)}
                 disabled={isBroadcasting}
               >
                 Cancel
               </button>
-
               <button
                 className="send-broadcast-button"
                 onClick={handleBroadcast}
                 disabled={isBroadcasting}
               >
-                {isBroadcasting
-                  ? "Sending..."
-                  : "📢 Dispatch Advisory"}
+                {isBroadcasting ? "Sending..." : "📢 Dispatch Advisory"}
               </button>
-
             </div>
-
           </div>
-
         </div>
-
       )}
-
     </div>
   );
 }
 
 export default StateHotspotMap;
-

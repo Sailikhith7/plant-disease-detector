@@ -6,7 +6,7 @@ type CaseDetailPageProps = {
   caseData: Case;
   onBack: () => void;
   onResolve: (
-    caseId: number,
+    caseId: string | number,
     expertDiagnosis: string,
     prescription: string
   ) => void;

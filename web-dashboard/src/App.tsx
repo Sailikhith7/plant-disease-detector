@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import ResolvedCasesPage from "./pages/ResolvedCasesPage";
@@ -52,46 +51,14 @@ function App() {
 
       const data = await response.json();
 
-      console.log(
-        "[PikRakshak] Backend response:",
-        data
-      );
-
-      // =========================================
-      // IMPORTANT:
-      //
-      // Backend returns:
-      //
-      // {
-      //   status: "success",
-      //   cases: [...]
-      // }
-      //
-      // Therefore we must extract data.cases.
-      // =========================================
-
       const backendCases = Array.isArray(data)
         ? data
         : Array.isArray(data?.cases)
           ? data.cases
           : [];
 
-      console.log(
-        "[PikRakshak] Cases received:",
-        backendCases.length
-      );
-
-      // =========================================
-      // NORMALIZE BACKEND DATA
-      // TO FRONTEND MockCase FORMAT
-      // =========================================
-
       const formattedCases: MockCase[] =
         backendCases.map((item: any) => {
-          // Handle confidence values such as:
-          // 0.85  -> 85
-          // 85    -> 85
-
           let confidence = 0;
 
           if (
@@ -196,6 +163,7 @@ function App() {
             // Expert diagnosis
             expert_diagnosis:
               item.expert_diagnosis ||
+              item.expert_response ||
               undefined,
 
             // Prescription
@@ -204,11 +172,6 @@ function App() {
               undefined,
           };
         });
-
-      console.log(
-        "[PikRakshak] Formatted cases:",
-        formattedCases
-      );
 
       setLiveCases(formattedCases);
     } catch (err) {
@@ -222,8 +185,7 @@ function App() {
   }, []);
 
   // =========================================
-  // FETCH ON STARTUP
-  // AND EVERY 4 SECONDS
+  // FETCH ON STARTUP & POLLING
   // =========================================
 
   useEffect(() => {
@@ -243,7 +205,9 @@ function App() {
   const pendingCases = useMemo(() => {
     return liveCases.filter(
       (item) =>
-        item.status === "Pending Expert"
+        item.status === "Pending Expert" ||
+        item.status === "OPEN" ||
+        item.status === "Pending"
     );
   }, [liveCases]);
 
@@ -257,11 +221,11 @@ function App() {
     }, [liveCases]);
 
   // =========================================
-  // RESOLVE CASE
+  // RESOLVE CASE (Supports string or number ID)
   // =========================================
 
   const handleResolveCase = async (
-    caseId: number,
+    caseId: string | number,
     expertDiagnosis: string,
     prescription: string
   ) => {
@@ -277,11 +241,7 @@ function App() {
           },
 
           body: JSON.stringify({
-            expert_diagnosis:
-              expertDiagnosis,
-
-            prescription:
-              prescription,
+            expert_response: `${expertDiagnosis} - Prescription: ${prescription}`,
           }),
         }
       );
@@ -342,48 +302,32 @@ function App() {
   return (
     <div className="app">
 
-      {/* =====================================
-          HEADER
-      ====================================== */}
-
+      {/* HEADER */}
       <header className="topbar">
-
         <div className="brand-section">
-
           <div className="brand-mark">
             PR
           </div>
-
           <div>
             <h1>
               PikRakshak
             </h1>
-
             <p>
               Government Crop Health Monitoring Portal
             </p>
           </div>
-
         </div>
 
-        {/* PORTAL LABEL */}
-
         <div className="portal-label">
-
           <span className="portal-badge">
             GOVERNMENT PORTAL
           </span>
-
           <span className="portal-subtitle">
             KVK / Agriculture Department
           </span>
-
         </div>
 
-        {/* NAVIGATION */}
-
         <nav className="navigation">
-
           <button
             className={
               activePage === "triage"
@@ -422,22 +366,13 @@ function App() {
           >
             Analytics
           </button>
-
         </nav>
-
       </header>
 
-      {/* =====================================
-          CONTENT
-      ====================================== */}
-
+      {/* CONTENT */}
       <main>
-
-        {/* LOADING */}
-
         {isLoading &&
         liveCases.length === 0 ? (
-
           <div
             style={{
               padding: "2rem",
@@ -448,17 +383,9 @@ function App() {
             Loading live case records
             from PikRakshak backend...
           </div>
-
         ) : (
-
           <>
-
-            {/* =================================
-                EXPERT TRIAGE
-            ================================= */}
-
             {activePage === "triage" && (
-
               <ExpertTriagePage
                 cases={pendingCases}
                 onSelectCase={(caseData) =>
@@ -467,27 +394,15 @@ function App() {
                   )
                 }
               />
-
             )}
 
-            {/* =================================
-                STATE OUTBREAK MAP
-            ================================= */}
-
             {activePage === "map" && (
-
               <StateHotspotMap
                 cases={currentCases}
               />
-
             )}
 
-            {/* =================================
-                ANALYTICS
-            ================================= */}
-
             {activePage === "analytics" && (
-
               <TrendMetrics
                 cases={currentCases}
                 onResolvedClick={() =>
@@ -496,18 +411,12 @@ function App() {
                   )
                 }
               />
-
             )}
-
           </>
-
         )}
-
       </main>
-
     </div>
   );
 }
 
 export default App;
-

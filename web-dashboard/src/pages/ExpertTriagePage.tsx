@@ -8,68 +8,67 @@ type ExpertTriagePageProps = {
 };
 
 function ExpertTriagePage({
-    
   cases,
   onSelectCase,
 }: ExpertTriagePageProps) {
-    const [search, setSearch] = useState("");
-const [cropFilter, setCropFilter] = useState("All");
-const [districtFilter, setDistrictFilter] = useState("All");
-const [severityFilter, setSeverityFilter] = useState("All");
-const [sortOrder, setSortOrder] = useState("low");
+  const [search, setSearch] = useState("");
+  const [cropFilter, setCropFilter] = useState("All");
+  const [districtFilter, setDistrictFilter] = useState("All");
+  const [severityFilter, setSeverityFilter] = useState("All");
+  const [sortOrder, setSortOrder] = useState("low");
 
-const filteredCases = useMemo(() => {
-  const result = cases.filter((item) => {
-    const searchText = search.toLowerCase();
+  const filteredCases = useMemo(() => {
+    const result = cases.filter((item) => {
+      const searchText = search.toLowerCase();
 
-    const matchesSearch =
-      item.farmer_name.toLowerCase().includes(searchText) ||
-      item.disease.toLowerCase().includes(searchText) ||
-      item.crop.toLowerCase().includes(searchText);
+      const matchesSearch =
+        item.farmer_name.toLowerCase().includes(searchText) ||
+        item.disease.toLowerCase().includes(searchText) ||
+        item.crop.toLowerCase().includes(searchText);
 
-    const matchesCrop =
-      cropFilter === "All" || item.crop === cropFilter;
+      const matchesCrop =
+        cropFilter === "All" || item.crop === cropFilter;
 
-    const matchesDistrict =
-      districtFilter === "All" ||
-      item.district === districtFilter;
+      const matchesDistrict =
+        districtFilter === "All" ||
+        item.district === districtFilter;
 
-    const matchesSeverity =
-      severityFilter === "All" ||
-      item.severity === severityFilter;
+      const matchesSeverity =
+        severityFilter === "All" ||
+        item.severity === severityFilter;
 
-    return (
-      matchesSearch &&
-      matchesCrop &&
-      matchesDistrict &&
-      matchesSeverity
-    );
-  });
+      return (
+        matchesSearch &&
+        matchesCrop &&
+        matchesDistrict &&
+        matchesSeverity
+      );
+    });
 
-  result.sort((a, b) => {
-    if (sortOrder === "low") {
-      return a.confidence - b.confidence;
-    }
+    result.sort((a, b) => {
+      if (sortOrder === "low") {
+        return a.confidence - b.confidence;
+      }
+      return b.confidence - a.confidence;
+    });
 
-    return b.confidence - a.confidence;
-  });
+    return result;
+  }, [
+    cases,
+    search,
+    cropFilter,
+    districtFilter,
+    severityFilter,
+    sortOrder,
+  ]);
 
-  return result;
-}, [
-  cases,
-  search,
-  cropFilter,
-  districtFilter,
-  severityFilter,
-  sortOrder,
-]);
   return (
     <div className="page-container">
       <div className="page-header">
         <div>
           <h2>KVK Expert Triage</h2>
           <p>
-            Review crop cases where AI confidence is below 70%.
+            Review crop cases where AI confidence requires expert verification.
           </p>
         </div>
 
@@ -81,54 +80,55 @@ const filteredCases = useMemo(() => {
 
       <div className="table-card">
         <div className="filter-bar">
-  <input
-    type="text"
-    placeholder="Search farmer, crop or disease..."
-    value={search}
-    onChange={(e) => setSearch(e.target.value)}
-  />
+          <input
+            type="text"
+            placeholder="Search farmer, crop or disease..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
 
-  <select
-    value={cropFilter}
-    onChange={(e) => setCropFilter(e.target.value)}
-  >
-    <option value="All">All Crops</option>
-    <option value="Cotton">Cotton</option>
-    <option value="Soybean">Soybean</option>
-    <option value="Onion">Onion</option>
-    <option value="Sugarcane">Sugarcane</option>
-  </select>
+          <select
+            value={cropFilter}
+            onChange={(e) => setCropFilter(e.target.value)}
+          >
+            <option value="All">All Crops</option>
+            <option value="Cotton">Cotton</option>
+            <option value="Soybean">Soybean</option>
+            <option value="Onion">Onion</option>
+            <option value="Sugarcane">Sugarcane</option>
+          </select>
 
-  <select
-    value={districtFilter}
-    onChange={(e) => setDistrictFilter(e.target.value)}
-  >
-    <option value="All">All Districts</option>
-    <option value="Yavatmal">Yavatmal</option>
-    <option value="Nanded">Nanded</option>
-    <option value="Nashik">Nashik</option>
-    <option value="Kolhapur">Kolhapur</option>
-    <option value="Akola">Akola</option>
-  </select>
+          <select
+            value={districtFilter}
+            onChange={(e) => setDistrictFilter(e.target.value)}
+          >
+            <option value="All">All Districts</option>
+            <option value="Yavatmal">Yavatmal</option>
+            <option value="Nanded">Nanded</option>
+            <option value="Nashik">Nashik</option>
+            <option value="Kolhapur">Kolhapur</option>
+            <option value="Akola">Akola</option>
+          </select>
 
-  <select
-    value={severityFilter}
-    onChange={(e) => setSeverityFilter(e.target.value)}
-  >
-    <option value="All">All Severity</option>
-    <option value="High">High</option>
-    <option value="Medium">Medium</option>
-    <option value="Low">Low</option>
-  </select>
+          <select
+            value={severityFilter}
+            onChange={(e) => setSeverityFilter(e.target.value)}
+          >
+            <option value="All">All Severity</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
 
-  <select
-    value={sortOrder}
-    onChange={(e) => setSortOrder(e.target.value)}
-  >
-    <option value="low">Lowest Confidence First</option>
-    <option value="high">Highest Confidence First</option>
-  </select>
-</div>
+          <select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
+          >
+            <option value="low">Lowest Confidence First</option>
+            <option value="high">Highest Confidence First</option>
+          </select>
+        </div>
+
         <table>
           <thead>
             <tr>
@@ -146,10 +146,10 @@ const filteredCases = useMemo(() => {
           <tbody>
             {filteredCases.map((item) => (
               <tr
-  key={item.case_id}
-  onClick={() => onSelectCase(item)}
-  className="case-row"
->
+                key={item.case_id}
+                onClick={() => onSelectCase(item)}
+                className="case-row"
+              >
                 <td>#{item.case_id}</td>
                 <td>{item.farmer_name}</td>
                 <td>{item.crop}</td>
