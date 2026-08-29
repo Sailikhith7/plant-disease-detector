@@ -1,0 +1,7 @@
+{
+  "temperature": 1.307572630653158,
+  "method": "temperature_scaling",
+  "calibration_dataset": "validation",
+  "validation_samples": 1734,
+  "num_classes": 27
+}
