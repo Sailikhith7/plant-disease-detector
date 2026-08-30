@@ -2,13 +2,17 @@ package com.kisanmitra.ui.screens
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.ImageCapture
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -67,10 +72,9 @@ object AppStrings {
     fun get(lang: String): Map<String, String> = when (lang) {
         "hi" -> mapOf(
             "title" to "🌱 किसान मित्र",
-            "step1_title" to "१. फसल का प्रकार चुनें",
-            "step2_lang" to "२. पसंदीदा भाषा",
-            "step3_farmer" to "३. किसान का नाम",
-            "step4_district" to "४. जिला (महाराष्ट्र)",
+            "step1_lang" to "१. पसंदीदा भाषा",
+            "step2_farmer" to "२. किसान का नाम",
+            "step3_district" to "३. जिला (महाराष्ट्र)",
             "btn_proceed" to "पत्ती स्कैनर पर जाएं",
             "scanner_instruction" to "कैमरे के सामने संक्रमित पत्ती रखें",
             "btn_capture" to "📸 फोटो लें और विश्लेषण करें",
@@ -95,17 +99,16 @@ object AppStrings {
             "hist_pending" to "लोकल सेव (सिंक लंबित)",
             "help_title" to "महाराष्ट्र कृषि सहायता (Help & Support)",
             "help_desc" to "यदि आपको फसल निदान या सहायता चाहिए, तो नीचे दिए गए माध्यमों से संपर्क करें:",
-            "help_helpline" to "हेल्पलाइन नंबर: [ यहाँ अपना नंबर दर्ज करें ]",
-            "help_email" to "ईमेल सहायता: [ यहाँ ईमेल दर्ज करें ]",
-            "help_website" to "आधिकारिक वेबसाइट: [ यहाँ लिंक दर्ज करें ]",
+            "help_helpline_lbl" to "📞 हेल्पलाइन / फोन: ",
+            "help_email_lbl" to "✉️ ईमेल: ",
+            "help_website_lbl" to "🌐 वेबसाइट: ",
             "close_btn" to "बंद करें"
         )
         "mr" -> mapOf(
             "title" to "🌱 किसान मित्र",
-            "step1_title" to "१. पिकाचा प्रकार निवडा",
-            "step2_lang" to "२. पसंतीची भाषा",
-            "step3_farmer" to "३. शेतकऱ्याचे नाव",
-            "step4_district" to "४. जिल्हा (महाराष्ट्र)",
+            "step1_lang" to "१. पसंतीची भाषा",
+            "step2_farmer" to "२. शेतकऱ्याचे नाव",
+            "step3_district" to "३. जिल्हा (महाराष्ट्र)",
             "btn_proceed" to "पाने स्कॅनरकडे जा",
             "scanner_instruction" to "कॅमेऱ्यासमोर बाधित पान धरा",
             "btn_capture" to "📸 फोटो घ्या आणि विश्लेषण करा",
@@ -130,17 +133,16 @@ object AppStrings {
             "hist_pending" to "स्थानिक सेव्ह (प्रलंबित)",
             "help_title" to "महाराष्ट्र कृषी मदत (Help & Support)",
             "help_desc" to "आपल्याला शेतीविषयी किंवा पिकांच्या रोगांबाबतीत मदत हवी असल्यास खालील संपर्कांवर संपर्क साधा:",
-            "help_helpline" to "हेल्पलाईन नंबर: [ इथे मोबाईल नंबर टाका ]",
-            "help_email" to "ईमेल पत्ता: [ इथे ईमेल टाका ]",
-            "help_website" to "अधिकृत संकेतस्थळ: [ इथे वेबसाईट लिंक टाका ]",
+            "help_helpline_lbl" to "📞 हेल्पलाईन / फोन: ",
+            "help_email_lbl" to "✉️ ई-मेल: ",
+            "help_website_lbl" to "🌐 संकेतस्थळ: ",
             "close_btn" to "बंद करा"
         )
         else -> mapOf(
             "title" to "🌱 Kisan Mitra",
-            "step1_title" to "1. Select Crop Type",
-            "step2_lang" to "2. Preferred Language",
-            "step3_farmer" to "3. Farmer Full Name",
-            "step4_district" to "4. District (Maharashtra)",
+            "step1_lang" to "1. Preferred Language",
+            "step2_farmer" to "2. Farmer Full Name",
+            "step3_district" to "3. District (Maharashtra)",
             "btn_proceed" to "Proceed to Leaf Scanner",
             "scanner_instruction" to "Align infected leaf in viewfinder",
             "btn_capture" to "📸 Capture & Analyze",
@@ -165,9 +167,9 @@ object AppStrings {
             "hist_pending" to "Local Saved (Pending Sync)",
             "help_title" to "Maharashtra Farmer Help & Support",
             "help_desc" to "If you need immediate assistance or expert agronomy support across Maharashtra, please reach out via:",
-            "help_helpline" to "Helpline / Mobile: [ Enter Phone Number Here ]",
-            "help_email" to "Support Email: [ Enter Email Address Here ]",
-            "help_website" to "Official Website: [ Enter Website Link Here ]",
+            "help_helpline_lbl" to "📞 Helpline / Tel: ",
+            "help_email_lbl" to "✉️ Email: ",
+            "help_website_lbl" to "🌐 Website: ",
             "close_btn" to "Close"
         )
     }
@@ -176,7 +178,7 @@ object AppStrings {
 suspend fun processAndSaveCase(
     context: Context,
     photoFile: File,
-    crop: String,
+    crop: String = "Cotton",
     language: String,
     farmerName: String,
     district: String,
@@ -200,7 +202,10 @@ suspend fun processAndSaveCase(
                 createdAt = System.currentTimeMillis()
             )
         )
-    } catch (_: Throwable) {}
+        android.util.Log.d("RoomDB", "Inserted offline case ID: $localId")
+    } catch (e: Throwable) {
+        android.util.Log.e("RoomDB", "Error saving offline case", e)
+    }
 
     try {
         val requestFile = photoFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
@@ -211,6 +216,8 @@ suspend fun processAndSaveCase(
         val districtBody = district.toRequestBody("text/plain".toMediaTypeOrNull())
         val farmerIdBody = "MH_${district.take(3).uppercase()}_001".toRequestBody("text/plain".toMediaTypeOrNull())
 
+        android.util.Log.d("NetworkAPI", "Attempting POST to /api/predict...")
+
         val response = ApiClient.apiService.predictDisease(
             image = imagePart,
             language = langBody,
@@ -220,17 +227,27 @@ suspend fun processAndSaveCase(
             farmerId = farmerIdBody
         )
 
+        android.util.Log.d("NetworkAPI", "Response HTTP Code: ${response.code()}")
+
         if (response.isSuccessful && response.body() != null) {
             val body = response.body()!!
+            android.util.Log.d("NetworkAPI", "Prediction Success: Disease=${body.disease}, Conf=${body.confidence}")
             if (localId > 0) {
                 try {
                     val db = AppDatabase.getDatabase(appContext)
                     db.caseDao().markCaseSynced(localId, body.disease, body.confidence)
-                } catch (_: Throwable) {}
+                } catch (e: Throwable) {
+                    android.util.Log.e("RoomDB", "Failed to mark synced", e)
+                }
             }
             return@withContext body
+        } else {
+            val err = response.errorBody()?.string()
+            android.util.Log.e("NetworkAPI", "Backend returned error: $err")
         }
-    } catch (_: Throwable) {}
+    } catch (e: Throwable) {
+        android.util.Log.e("NetworkAPI", "Network request failed", e)
+    }
 
     val str = AppStrings.get(language)
     return@withContext CaseResponse(
@@ -563,7 +580,6 @@ fun HomeScreen() {
     var currentStep by remember { mutableIntStateOf(1) }
 
     // User Selection States
-    var selectedCrop by remember { mutableStateOf("Cotton") }
     var selectedLanguage by remember { mutableStateOf("en") }
     var farmerName by remember { mutableStateOf("") }
     var selectedDistrict by remember { mutableStateOf("Yavatmal") }
@@ -579,7 +595,6 @@ fun HomeScreen() {
     var isLoading by remember { mutableStateOf(false) }
 
     val imageCapture = remember { ImageCapture.Builder().build() }
-    val crops = listOf("Cotton", "Groundnut", "Ragi", "Rice", "Sugarcane")
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -612,7 +627,6 @@ fun HomeScreen() {
                     val result = processAndSaveCase(
                         context = context,
                         photoFile = cacheFile,
-                        crop = selectedCrop,
                         language = selectedLanguage,
                         farmerName = farmerName,
                         district = selectedDistrict,
@@ -623,9 +637,11 @@ fun HomeScreen() {
                         resultData = result
                         currentStep = 3
                     }
-                } catch (_: Throwable) {
+                } catch (e: Throwable) {
+                    android.util.Log.e("GalleryPicker", "Failed to process selected image", e)
                     withContext(Dispatchers.Main) {
                         isLoading = false
+                        Toast.makeText(context, "Failed to load image from gallery", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -644,7 +660,7 @@ fun HomeScreen() {
         }
     }
 
-    // Help & Support Dialog Popup
+    // Help & Support Dialog with Clickable Intents (Call, Mail, Browser)
     if (showHelpDialog) {
         AlertDialog(
             onDismissRequest = { showHelpDialog = false },
@@ -652,17 +668,99 @@ fun HomeScreen() {
                 Text(text = str["help_title"] ?: "Help & Support", fontWeight = FontWeight.Bold)
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(text = str["help_desc"] ?: "", fontSize = 14.sp)
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
 
-                    // ========================================================
-                    // FRIENDLY CONTRIBUTION AREA:
-                    // Easily update or fill these contact fields tomorrow!
-                    // ========================================================
-                    Text(text = str["help_helpline"] ?: "", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                    Text(text = str["help_email"] ?: "", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                    Text(text = str["help_website"] ?: "", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    // 1. Interactive Helpline Phone Number
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                try {
+                                    val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02026123648"))
+                                    context.startActivity(dialIntent)
+                                } catch (_: Throwable) {
+                                    Toast.makeText(context, "Unable to open dialer", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = str["help_helpline_lbl"] ?: "📞 Helpline: ",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "020-26123648",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            textDecoration = TextDecoration.Underline
+                        )
+                    }
+
+                    // 2. Interactive Support Email
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                try {
+                                    val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                                        data = Uri.parse("mailto:comm.agripune-mh@gov.in")
+                                        putExtra(Intent.EXTRA_SUBJECT, "Kisan Mitra - Crop Disease Advisory Assistance")
+                                    }
+                                    context.startActivity(emailIntent)
+                                } catch (_: Throwable) {
+                                    Toast.makeText(context, "No email client found", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = str["help_email_lbl"] ?: "✉️ Email: ",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "comm.agripune-mh@gov.in",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            textDecoration = TextDecoration.Underline
+                        )
+                    }
+
+                    // 3. Interactive Official Website
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                try {
+                                    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://krishi.maharashtra.gov.in"))
+                                    context.startActivity(browserIntent)
+                                } catch (_: Throwable) {
+                                    Toast.makeText(context, "Unable to open browser", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = str["help_website_lbl"] ?: "🌐 Website: ",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "krishi.maharashtra.gov.in",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            textDecoration = TextDecoration.Underline
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -678,7 +776,6 @@ fun HomeScreen() {
             TopAppBar(
                 title = { Text(str["title"] ?: "🌱 Kisan Mitra", fontWeight = FontWeight.Bold) },
                 actions = {
-                    // Help action button on the right side of the TopAppBar
                     IconButton(onClick = { showHelpDialog = true }) {
                         Icon(
                             imageVector = Icons.Default.Info,
@@ -730,46 +827,9 @@ fun HomeScreen() {
                     ) {
                         when (currentStep) {
                             1 -> {
-                                // 1. Crop Selection
+                                // 1. Language Selection
                                 Text(
-                                    str["step1_title"] ?: "1. Select Crop Type",
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.align(Alignment.Start)
-                                )
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceEvenly
-                                ) {
-                                    crops.take(3).forEach { crop ->
-                                        FilterChip(
-                                            selected = selectedCrop == crop,
-                                            onClick = { selectedCrop = crop },
-                                            label = { Text(crop) }
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceEvenly
-                                ) {
-                                    crops.drop(3).forEach { crop ->
-                                        FilterChip(
-                                            selected = selectedCrop == crop,
-                                            onClick = { selectedCrop = crop },
-                                            label = { Text(crop) }
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(20.dp))
-
-                                // 2. Language Selection
-                                Text(
-                                    str["step2_lang"] ?: "2. Preferred Language",
+                                    str["step1_lang"] ?: "1. Preferred Language",
                                     fontSize = 17.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.align(Alignment.Start)
@@ -799,9 +859,9 @@ fun HomeScreen() {
 
                                 Spacer(modifier = Modifier.height(20.dp))
 
-                                // 3. Farmer Name Input
+                                // 2. Farmer Name Input
                                 Text(
-                                    str["step3_farmer"] ?: "3. Farmer Full Name",
+                                    str["step2_farmer"] ?: "2. Farmer Full Name",
                                     fontSize = 17.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.align(Alignment.Start)
@@ -819,9 +879,9 @@ fun HomeScreen() {
 
                                 Spacer(modifier = Modifier.height(20.dp))
 
-                                // 4. Maharashtra 36 Districts Dropdown
+                                // 3. Maharashtra 36 Districts Dropdown
                                 Text(
-                                    str["step4_district"] ?: "4. District (Maharashtra)",
+                                    str["step3_district"] ?: "3. District (Maharashtra)",
                                     fontSize = 17.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.align(Alignment.Start)
@@ -881,7 +941,7 @@ fun HomeScreen() {
 
                             2 -> {
                                 Text(
-                                    "${str["scanner_instruction"] ?: ""} ($selectedCrop)",
+                                    str["scanner_instruction"] ?: "Align infected leaf in viewfinder",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -925,7 +985,6 @@ fun HomeScreen() {
                                                             val result = processAndSaveCase(
                                                                 context = context,
                                                                 photoFile = file,
-                                                                crop = selectedCrop,
                                                                 language = selectedLanguage,
                                                                 farmerName = farmerName,
                                                                 district = selectedDistrict,
@@ -952,7 +1011,6 @@ fun HomeScreen() {
                                                             val result = processAndSaveCase(
                                                                 context = context,
                                                                 photoFile = fallbackFile,
-                                                                crop = selectedCrop,
                                                                 language = selectedLanguage,
                                                                 farmerName = farmerName,
                                                                 district = selectedDistrict,
@@ -964,7 +1022,8 @@ fun HomeScreen() {
                                                         }
                                                     }
                                                 )
-                                            } catch (_: Throwable) {
+                                            } catch (e: Throwable) {
+                                                android.util.Log.e("CameraCapture", "Capture failed", e)
                                                 val fallbackFile = File(context.cacheDir, "sample_scan.jpg").apply {
                                                     if (!exists()) {
                                                         createNewFile()
@@ -980,7 +1039,6 @@ fun HomeScreen() {
                                                     val result = processAndSaveCase(
                                                         context = context,
                                                         photoFile = fallbackFile,
-                                                        crop = selectedCrop,
                                                         language = selectedLanguage,
                                                         farmerName = farmerName,
                                                         district = selectedDistrict,

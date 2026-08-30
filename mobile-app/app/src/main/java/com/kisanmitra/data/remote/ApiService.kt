@@ -9,7 +9,7 @@ import retrofit2.http.Part
 
 interface ApiService {
     @Multipart
-    @POST("/api/predict")
+    @POST("api/predict")
     suspend fun predictDisease(
         @Part image: MultipartBody.Part,
         @Part("language") language: RequestBody,
