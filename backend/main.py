@@ -12,13 +12,21 @@ try:
 except ImportError:
     voice_router_available = False
 
-UPLOAD_DIR = "uploads"
+# Anchor every filesystem path to this file's location, not the process's
+# working directory. Without this, "uploads" (relative) resolves differently
+# depending on where `uvicorn`/the deploy process is launched from, which is
+# exactly the kind of thing that works locally and breaks in production.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Static directory for generated audio/TTS files
-STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
-os.makedirs(STATIC_DIR, exist_ok=True)
-os.makedirs(os.path.join(STATIC_DIR, "audio"), exist_ok=True)
+# Static directory for generated audio/TTS files (also used by
+# backend/routers/cases.py for expert voice-prescription audio — keep this
+# path logic in sync with that file's AUDIO_DIR).
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+AUDIO_DIR = os.path.join(STATIC_DIR, "audio")
+os.makedirs(AUDIO_DIR, exist_ok=True)
 
 app = FastAPI(
     title="PikRakshak - Plant Disease Detection & Advisory API",

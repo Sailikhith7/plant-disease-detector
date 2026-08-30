@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
@@ -97,6 +98,7 @@ object AppStrings {
             "fallback_advisory" to "फसल अवशेष नष्ट करें, फेरोमोन ट्रैप लगाएं और क्लोरांट्रानिलिप्रोल 18.5% SC @ 60 मिली/एकड़ का छिड़काव करें।",
             "tab_scan" to "स्कैन",
             "tab_history" to "इतिहास",
+            "tab_expert" to "विशेषज्ञ सलाह",
             "tab_guide" to "गाइडलाइन",
             "hist_title" to "पिछले निदान रिकॉर्ड",
             "hist_empty" to "अभी तक कोई इतिहास रिकॉर्ड नहीं मिला।",
@@ -133,6 +135,7 @@ object AppStrings {
             "fallback_advisory" to "पिकाचे अवशेष नष्ट करा, कामगंध सापळे लावा आणि योग्य कीटकनाशकाची फवारणी करा.",
             "tab_scan" to "स्कॅन",
             "tab_history" to "इतिहास",
+            "tab_expert" to "तज्ज्ञ सल्ला",
             "tab_guide" to "मार्गदर्शक",
             "hist_title" to "मागील निदान नोंदी",
             "hist_empty" to "अद्याप कोणताही इतिहास आढळला नाही.",
@@ -169,6 +172,7 @@ object AppStrings {
             "fallback_advisory" to "Destroy crop residues, deploy pheromone traps, and apply recommended bio-pesticides or chemical sprays as per IPM guidelines.",
             "tab_scan" to "Scan",
             "tab_history" to "History",
+            "tab_expert" to "Expert Desk",
             "tab_guide" to "Guide",
             "hist_title" to "Diagnosis History",
             "hist_empty" to "No scan records found yet.",
@@ -874,10 +878,16 @@ fun HomeScreen() {
                     onClick = { selectedTab = 1 }
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.Info, contentDescription = "Guide") },
-                    label = { Text(str["tab_guide"] ?: "Guide") },
+                    icon = { Icon(Icons.Default.Person, contentDescription = "Expert Desk") },
+                    label = { Text(str["tab_expert"] ?: "Expert Desk") },
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 }
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Info, contentDescription = "Guide") },
+                    label = { Text(str["tab_guide"] ?: "Guide") },
+                    selected = selectedTab == 3,
+                    onClick = { selectedTab = 3 }
                 )
             }
         }
@@ -1335,7 +1345,11 @@ fun HomeScreen() {
                     }
                 }
                 1 -> HistoryTabContent(selectedLanguage = selectedLanguage)
-                2 -> GuideTabContent(selectedLanguage = selectedLanguage)
+                2 -> ExpertDeskScreen(
+                    selectedLanguage = selectedLanguage,
+                    currentFarmerName = farmerName
+                )
+                3 -> GuideTabContent(selectedLanguage = selectedLanguage)
             }
         }
     }

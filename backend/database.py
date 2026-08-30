@@ -50,6 +50,7 @@ class ExpertResponse(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     case_id = Column(String(100), index=True)
     expert_response = Column(Text)
+    audio_url = Column(String(255), nullable=True)
     created_at = Column(String(100), default=lambda: datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
 
 
