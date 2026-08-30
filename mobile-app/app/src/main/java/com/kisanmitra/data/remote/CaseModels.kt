@@ -24,27 +24,12 @@ data class ExpertDeskCaseDto(
 )
 
 data class CaseResponse(
-    @SerializedName("case_id")
-    val caseId: String? = null,
-
-    @SerializedName("crop")
-    val crop: String = "",
-
-    @SerializedName("disease")
-    val disease: String = "",
-
-    @SerializedName("confidence")
-    val confidence: Float = 0.0f,
-
-    @SerializedName("status")
-    val status: String = "",
-
-    @SerializedName("response")
-    val response: String = "",
-
-    @SerializedName("language")
-    val language: String = "en",
-
-    @SerializedName("audio_url")
-    val audioUrl: String? = null
+    @SerializedName("case_id") val caseId: String? = null,
+    @SerializedName("crop") val crop: String = "",
+    @SerializedName("disease") val disease: String = "",
+    @SerializedName("confidence") val confidence: Float = 0.0f,
+    @SerializedName("status") val status: String = "",
+    @SerializedName("response") val response: String = "",
+    @SerializedName("language") val language: String = "en",
+    @SerializedName("audio_url") val audioUrl: String? = null
 )

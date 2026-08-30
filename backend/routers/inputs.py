@@ -1,12 +1,15 @@
 import os
-import sqlite3
 import uuid
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+import traceback
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
+from sqlalchemy.orm import Session
 
+from backend.database import get_db, Case
 from backend.ml.predictor import predict
 from backend.rag.retriever import get_disease_information
 from backend.rag.llm import generate_response
 from backend.schemas.case_schema import PredictionResponse
+from backend.services.cloud_storage import upload_image_to_cloud
 
 try:
     from backend.services.voice_service import generate_regional_audio
@@ -61,7 +64,6 @@ DISTRICT_COORDINATES = {
     "yavatmal": (20.3888, 78.1204),
 }
 
-DB_PATH = "data/peekrakshak.db"
 CONFIDENCE_THRESHOLD = 0.75
 
 ALLOWED_IMAGE_TYPES = {
@@ -81,6 +83,7 @@ async def predict_disease(
     district: str = Form("Yavatmal"),
     farmer_name: str = Form("Ramesh Patil"),
     farmer_id: str = Form("MH_YAV_001"),
+    db: Session = Depends(get_db),
 ):
     if language not in ["en", "mr", "hi"]:
         raise HTTPException(status_code=400, detail="Language must be en, mr, or hi.")
@@ -118,65 +121,58 @@ async def predict_disease(
 
     case_id = "CASE_" + uuid.uuid4().hex[:8].upper()
 
-    # 2. Save uploaded image file to disk
-    file_ext = image.filename.split(".")[-1] if image.filename and "." in image.filename else "jpg"
-    image_filename = f"{case_id}.{file_ext}"
-    image_disk_path = os.path.join(UPLOAD_DIR, image_filename)
-    try:
-        with open(image_disk_path, "wb") as f:
-            f.write(image_bytes)
-    except Exception as e:
-        print(f"[IMAGE SAVE WARNING] Could not write image to disk: {e}")
-
-    image_url = f"http://127.0.0.1:8000/uploads/{image_filename}"
+    # 2. Upload image to Cloudinary (fallback to local disk)
+    cloud_url = upload_image_to_cloud(image_bytes)
+    if cloud_url:
+        image_url = cloud_url
+    else:
+        file_ext = image.filename.split(".")[-1] if image.filename and "." in image.filename else "jpg"
+        image_filename = f"{case_id}.{file_ext}"
+        image_disk_path = os.path.join(UPLOAD_DIR, image_filename)
+        try:
+            with open(image_disk_path, "wb") as f:
+                f.write(image_bytes)
+        except Exception as e:
+            print(f"[IMAGE SAVE WARNING] Could not write image to disk: {e}")
+        image_url = f"http://192.168.137.1:8000/uploads/{image_filename}"
 
     # 3. Lookup district coordinates
     normalized_district = district.strip().lower()
     lat, lon = DISTRICT_COORDINATES.get(normalized_district, (20.3888, 78.1204))
 
-    # 4. Save into SQLite database
-    conn = sqlite3.connect(DB_PATH)
+    # 4. Save into Cloud PostgreSQL Database via SQLAlchemy
+    #
+    # IMPORTANT: we deliberately do NOT let a DB failure block the response —
+    # the farmer should still get their prediction/advisory even if the save
+    # to the dashboard DB fails. But we now log the REAL exception (with a
+    # traceback) instead of swallowing it, and we tell the caller whether the
+    # save actually succeeded via db_saved/db_error, so this can't fail
+    # silently and invisibly again.
+    db_saved = True
+    db_error = None
     try:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO cases (
-                case_id,
-                farmer_id,
-                farmer_name,
-                district,
-                crop,
-                disease_detected,
-                confidence,
-                severity,
-                latitude,
-                longitude,
-                image_url,
-                status
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                case_id,
-                farmer_id,
-                farmer_name,
-                district,
-                crop_detected,
-                disease_key,
-                confidence,
-                severity,
-                lat,
-                lon,
-                image_url,
-                "Pending Expert",
-            ),
+        new_case = Case(
+            case_id=case_id,
+            farmer_id=farmer_id,
+            farmer_name=farmer_name,
+            district=district,
+            crop=crop_detected,
+            disease_detected=disease_key,
+            confidence=confidence,
+            severity=severity,
+            latitude=lat,
+            longitude=lon,
+            image_url=image_url,
+            status="Pending Expert"
         )
-        conn.commit()
+        db.add(new_case)
+        db.commit()
     except Exception as e:
-        conn.rollback()
-        print(f"[DB ERROR] Failed to record case: {str(e)}")
-    finally:
-        conn.close()
+        db.rollback()
+        db_saved = False
+        db_error = str(e)
+        print(f"[DB ERROR] Failed to record case {case_id} to Cloud DB: {e}")
+        print(traceback.format_exc())
 
     # 5. Advisory Response via RAG + LLM
     disease_info = get_disease_information(disease_key)
@@ -225,4 +221,6 @@ async def predict_disease(
         response=advisory_response,
         language=language,
         audio_url=audio_path,
+        db_saved=db_saved,
+        db_error=db_error,
     )

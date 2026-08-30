@@ -13,6 +13,9 @@ export async function getCases() {
 
   const data = await response.json();
 
+  if (Array.isArray(data)) {
+    return data;
+  }
   return data?.cases ?? [];
 }
 
@@ -100,7 +103,7 @@ export async function getAnalytics() {
 
   const data = await response.json();
 
-  return data?.metrics ?? {};
+  return data?.metrics ?? data ?? {};
 }
 
 

@@ -2,12 +2,11 @@ package com.kisanmitra
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -15,12 +14,10 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.kisanmitra.sync.SyncWorker
-import com.kisanmitra.ui.screens.CaptureScreen
-import com.kisanmitra.ui.screens.DiagnosisResultScreen
 import com.kisanmitra.ui.screens.HomeScreen
 import java.util.concurrent.TimeUnit
 
-// Data model to store the prediction payload across screens (including dynamic audio URL)
+// Data model required by prediction and result screens
 data class PredictionData(
     val crop: String,
     val disease: String,
@@ -65,61 +62,5 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppNavigation() {
-    var currentScreen by remember { mutableStateOf("home") }
-    var predictionResult by remember { mutableStateOf<PredictionData?>(null) }
-
-    // Backend IPv4 address for local machine / real device connectivity
-    val backendBaseUrl = "http://192.168.137.1:8000"
-
-    when (currentScreen) {
-        "home" -> {
-            HomeScreen()
-        }
-
-        "capture" -> {
-            BackHandler {
-                currentScreen = "home"
-            }
-            CaptureScreen(
-                backendUrl = backendBaseUrl,
-                selectedLanguage = "mr", // Marathi by default
-                onDiagnosisSuccess = { crop, disease, confidence, status, response, audioUrl ->
-                    predictionResult = PredictionData(
-                        crop = crop,
-                        disease = disease,
-                        confidence = confidence,
-                        status = status,
-                        response = response,
-                        audioUrl = audioUrl
-                    )
-                    currentScreen = "result"
-                },
-                onBackClick = {
-                    currentScreen = "home"
-                }
-            )
-        }
-
-        "result" -> {
-            BackHandler {
-                currentScreen = "capture"
-            }
-            predictionResult?.let { result ->
-                DiagnosisResultScreen(
-                    crop = result.crop,
-                    disease = result.disease,
-                    confidence = result.confidence,
-                    status = result.status,
-                    advisoryText = result.response,
-                    audioUrl = result.audioUrl,
-                    onBackClick = {
-                        currentScreen = "capture"
-                    },
-                    onViewCaseStatusClick = {
-                        currentScreen = "home"
-                    }
-                )
-            }
-        }
-    }
+    HomeScreen()
 }

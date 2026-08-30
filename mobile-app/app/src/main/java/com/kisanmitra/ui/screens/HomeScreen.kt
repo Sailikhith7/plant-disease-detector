@@ -191,34 +191,13 @@ object AppStrings {
 suspend fun processAndSaveCase(
     context: Context,
     photoFile: File,
-    crop: String = "Cotton",
+    crop: String = "",
     language: String,
     farmerName: String,
     district: String,
     defaultDisease: String
 ): CaseResponse = withContext(Dispatchers.IO) {
     val appContext = context.applicationContext
-    var localId = 0L
-
-    try {
-        val db = AppDatabase.getDatabase(appContext)
-        localId = db.caseDao().insertCase(
-            CaseEntity(
-                localImagePath = photoFile.absolutePath,
-                crop = crop.ifBlank { "Cotton" },
-                language = language,
-                latitude = 16.51f,
-                longitude = 80.52f,
-                detectedDisease = defaultDisease,
-                confidence = 0.92f,
-                isSynced = false,
-                createdAt = System.currentTimeMillis()
-            )
-        )
-        android.util.Log.d("RoomDB", "Inserted offline case ID: $localId")
-    } catch (e: Throwable) {
-        android.util.Log.e("RoomDB", "Error saving offline case", e)
-    }
 
     try {
         val requestFile = photoFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
@@ -240,27 +219,36 @@ suspend fun processAndSaveCase(
 
         if (response.isSuccessful && response.body() != null) {
             val body = response.body()!!
-            if (localId > 0) {
-                try {
-                    val db = AppDatabase.getDatabase(appContext)
-                    db.caseDao().markCaseSynced(localId, body.disease, body.confidence)
-                } catch (e: Throwable) {
-                    android.util.Log.e("RoomDB", "Failed to mark synced", e)
-                }
+            try {
+                val db = AppDatabase.getDatabase(appContext)
+                db.caseDao().insertCase(
+                    CaseEntity(
+                        localImagePath = photoFile.absolutePath,
+                        crop = body.crop,
+                        language = language,
+                        latitude = 19.75f,
+                        longitude = 75.71f,
+                        detectedDisease = body.disease,
+                        confidence = body.confidence,
+                        isSynced = true,
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            } catch (e: Throwable) {
+                android.util.Log.e("RoomDB", "Failed to insert local room entry", e)
             }
             return@withContext body
         }
     } catch (e: Throwable) {
-        android.util.Log.e("NetworkAPI", "Network request failed", e)
+        android.util.Log.e("NetworkAPI", "Network exception during prediction", e)
     }
 
-    val str = AppStrings.get(language)
-    return@withContext CaseResponse(
-        crop = crop,
-        disease = defaultDisease,
-        confidence = 0.92f,
-        status = "Pending Expert",
-        response = str["fallback_advisory"] ?: "",
+    CaseResponse(
+        crop = crop.ifBlank { "Unknown" },
+        disease = "Connection Failed / Parse Error",
+        confidence = 0f,
+        status = "Error",
+        response = "Could not parse response from backend. Check Logcat for details.",
         language = language,
         audioUrl = null
     )
@@ -270,8 +258,24 @@ suspend fun processAndSaveCase(
 fun HistoryTabContent(selectedLanguage: String) {
     val context = LocalContext.current
     val str = AppStrings.get(selectedLanguage)
-    val db = remember { AppDatabase.getDatabase(context.applicationContext) }
-    val casesList by db.caseDao().getAllCasesFlow().collectAsState(initial = emptyList())
+
+    var casesList by remember { mutableStateOf<List<CaseEntity>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        try {
+            val db = withContext(Dispatchers.IO) {
+                AppDatabase.getDatabase(context.applicationContext)
+            }
+            db.caseDao().getAllCasesFlow().collect { cases ->
+                casesList = cases
+                isLoading = false
+            }
+        } catch (e: Exception) {
+            casesList = emptyList()
+            isLoading = false
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -287,31 +291,44 @@ fun HistoryTabContent(selectedLanguage: String) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        if (casesList.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = 60.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🌿", fontSize = 42.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = str["hist_empty"] ?: "No scan records found yet.",
-                        color = Color.Gray,
-                        fontSize = 15.sp
-                    )
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 60.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
                 }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 80.dp)
-            ) {
-                items(casesList) { item ->
-                    HistoryCardView(item = item, str = str)
+            casesList.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 60.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("🌿", fontSize = 42.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = str["hist_empty"] ?: "No scan records found yet.",
+                            color = Color.Gray,
+                            fontSize = 15.sp
+                        )
+                    }
+                }
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 80.dp)
+                ) {
+                    items(casesList) { item ->
+                        HistoryCardView(item = item, str = str)
+                    }
                 }
             }
         }
@@ -585,13 +602,11 @@ fun HomeScreen() {
     var selectedTab by remember { mutableIntStateOf(0) }
     var currentStep by remember { mutableIntStateOf(1) }
 
-    // User Selection States
     var selectedLanguage by remember { mutableStateOf("mr") }
     var farmerName by remember { mutableStateOf("") }
     var selectedDistrict by remember { mutableStateOf("Yavatmal") }
     var isDistrictDropdownExpanded by remember { mutableStateOf(false) }
 
-    // Help Dialog State
     var showHelpDialog by remember { mutableStateOf(false) }
 
     val str = AppStrings.get(selectedLanguage)
@@ -652,7 +667,6 @@ fun HomeScreen() {
                         currentStep = 3
                     }
                 } catch (e: Throwable) {
-                    android.util.Log.e("GalleryPicker", "Failed to process selected image", e)
                     withContext(Dispatchers.Main) {
                         isLoading = false
                         Toast.makeText(context, "Failed to load image from gallery", Toast.LENGTH_SHORT).show()
@@ -1036,7 +1050,6 @@ fun HomeScreen() {
                                                     }
                                                 )
                                             } catch (e: Throwable) {
-                                                android.util.Log.e("CameraCapture", "Capture failed", e)
                                                 val fallbackFile = File(context.cacheDir, "sample_scan.jpg").apply {
                                                     if (!exists()) {
                                                         createNewFile()

@@ -1,84 +1,58 @@
-﻿import os
+import os
 import hashlib
-import sqlite3
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from sqlalchemy import desc, text
 from gtts import gTTS
+
+from backend.database import get_db, Case, Farmer, ExpertResponse, Base, engine
+
+# Ensure tables are created on whichever DB DATABASE_URL points to
+Base.metadata.create_all(bind=engine)
+
+# Dynamically ensure audio_url column exists in expert_responses if using SQLite/Postgres
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE expert_responses ADD COLUMN IF NOT EXISTS audio_url VARCHAR"))
+        conn.commit()
+except Exception:
+    pass
 
 router = APIRouter(
     prefix="/cases",
     tags=["Cases"]
 )
 
-# Path relative to backend directory
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(BASE_DIR, "..", "data", "peekrakshak.db")
-DB_PATH = os.path.abspath(DB_PATH)
-
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 AUDIO_DIR = os.path.join(STATIC_DIR, "audio")
-
-os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
 
-def init_cases_db():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS cases (
-            case_id TEXT PRIMARY KEY,
-            farmer_id TEXT,
-            farmer_name TEXT,
-            district TEXT,
-            crop TEXT,
-            disease_detected TEXT,
-            confidence REAL,
-            severity TEXT DEFAULT 'Medium',
-            latitude REAL,
-            longitude REAL,
-            image_url TEXT,
-            status TEXT DEFAULT 'Pending Expert',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS expert_responses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            case_id TEXT NOT NULL,
-            expert_response TEXT NOT NULL,
-            audio_url TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    cursor.execute("PRAGMA table_info(expert_responses)")
-    columns = [col[1] for col in cursor.fetchall()]
-    if "audio_url" not in columns:
-        cursor.execute("ALTER TABLE expert_responses ADD COLUMN audio_url TEXT")
-
-    conn.commit()
-    conn.close()
+def _confidence_percent(conf_val):
+    conf_val = conf_val if conf_val is not None else 0.0
+    conf_val = float(conf_val)
+    return round(conf_val * 100) if conf_val <= 1.0 else round(conf_val)
 
 
-init_cases_db()
+def _status_label(raw_status, has_response=False):
+    raw_status = str(raw_status).lower() if raw_status else "pending"
+    return "Resolved" if ("resolve" in raw_status or has_response) else "Pending Expert"
 
 
-def generate_tts_audio(text: str, lang: str = "mr") -> str:
+def generate_tts_audio(text_content: str, lang: str = "mr") -> str:
     try:
-        clean_text = text.strip()
+        clean_text = text_content.strip()
         if not clean_text:
             return ""
-            
+
         text_hash = hashlib.md5(f"{clean_text}_{lang}".encode("utf-8")).hexdigest()[:12]
         audio_filename = f"prescription_{lang}_{text_hash}.mp3"
         audio_filepath = os.path.join(AUDIO_DIR, audio_filename)
 
         if not os.path.exists(audio_filepath):
-            # Fallback to 'hi' if 'mr' has dialect pronunciation issues on gTTS
             tts_lang = "hi" if lang in ["hi", "mr"] else "en"
             tts = gTTS(text=clean_text, lang=tts_lang, slow=False)
             tts.save(audio_filepath)
@@ -91,81 +65,61 @@ def generate_tts_audio(text: str, lang: str = "mr") -> str:
 
 @router.get("")
 @router.get("/")
-def list_cases(farmer_name: Optional[str] = None, farmer_id: Optional[str] = None):
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    query = """
-        SELECT
-            c.case_id,
-            c.farmer_id,
-            COALESCE(c.farmer_name, 'Unknown Farmer') AS farmer_name,
-            c.district,
-            c.crop,
-            c.disease_detected,
-            c.confidence,
-            c.severity,
-            c.latitude,
-            c.longitude,
-            c.image_url,
-            c.status,
-            c.created_at,
-            er.expert_response,
-            er.audio_url AS expert_audio_url
-        FROM cases c
-        LEFT JOIN (
-            SELECT er1.case_id, er1.expert_response, er1.audio_url
-            FROM expert_responses er1
-            INNER JOIN (
-                SELECT case_id, MAX(created_at) as max_created
-                FROM expert_responses
-                GROUP BY case_id
-            ) er2 ON er1.case_id = er2.case_id AND er1.created_at = er2.max_created
-        ) er ON c.case_id = er.case_id
-        WHERE 1=1
-    """
-    params = []
-
-    query += " AND COALESCE(c.farmer_name, '') NOT IN ('Unknown Farmer', '')"
+def list_cases(
+    farmer_name: Optional[str] = None,
+    farmer_id: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = (
+        db.query(Case, Farmer)
+        .outerjoin(Farmer, Case.farmer_id == Farmer.farmer_id)
+        .order_by(desc(Case.created_at))
+    )
 
     if farmer_name and farmer_name.strip():
-        query += " AND LOWER(c.farmer_name) = LOWER(?)"
-        params.append(farmer_name.strip())
+        search_name = f"%{farmer_name.strip()}%"
+        query = query.filter(
+            (Case.farmer_name.ilike(search_name)) | (Farmer.name.ilike(search_name))
+        )
     elif farmer_id and farmer_id.strip():
-        query += " AND c.farmer_id = ?"
-        params.append(farmer_id.strip())
+        query = query.filter(Case.farmer_id == farmer_id.strip())
 
-    query += " ORDER BY c.created_at DESC"
-
-    cursor.execute(query, tuple(params))
-    rows = cursor.fetchall()
-    conn.close()
-
+    rows = query.all()
     cases = []
-    for row in rows:
-        conf_val = row["confidence"] if row["confidence"] is not None else 0.0
-        confidence_percent = round(float(conf_val) * 100) if float(conf_val) <= 1.0 else round(float(conf_val))
-        raw_status = str(row["status"]).lower() if row["status"] else "pending"
-        has_expert_response = bool(row["expert_response"])
-        status_label = "Resolved" if ("resolve" in raw_status or has_expert_response) else "Pending Expert"
+
+    for case, farmer in rows:
+        resolved_farmer_name = (
+            farmer.name if farmer and farmer.name
+            else (case.farmer_name or "Unknown Farmer")
+        )
+
+        # Exclude unknown / blank records
+        if resolved_farmer_name in ["Unknown Farmer", ""]:
+            continue
+
+        latest_resp = (
+            db.query(ExpertResponse)
+            .filter(ExpertResponse.case_id == case.case_id)
+            .order_by(desc(ExpertResponse.created_at))
+            .first()
+        )
 
         cases.append({
-            "case_id": row["case_id"],
-            "farmer_id": row["farmer_id"],
-            "farmer_name": row["farmer_name"],
-            "crop": row["crop"],
-            "disease": row["disease_detected"],
-            "confidence": confidence_percent,
-            "district": row["district"],
-            "severity": row["severity"] if "severity" in row.keys() and row["severity"] else "Medium",
-            "latitude": row["latitude"],
-            "longitude": row["longitude"],
-            "image_url": row["image_url"],
-            "status": status_label,
-            "expert_response": row["expert_response"],
-            "audio_url": row["expert_audio_url"],
-            "created_at": row["created_at"],
+            "case_id": case.case_id,
+            "farmer_id": case.farmer_id,
+            "farmer_name": resolved_farmer_name,
+            "crop": case.crop,
+            "disease": case.disease_detected,
+            "confidence": _confidence_percent(case.confidence),
+            "district": case.district,
+            "severity": case.severity or "Medium",
+            "latitude": case.latitude,
+            "longitude": case.longitude,
+            "image_url": case.image_url,
+            "status": _status_label(case.status, has_response=bool(latest_resp)),
+            "expert_response": latest_resp.expert_response if latest_resp else None,
+            "audio_url": getattr(latest_resp, "audio_url", None) if latest_resp else None,
+            "created_at": str(case.created_at) if case.created_at else None,
         })
 
     return {
@@ -175,106 +129,72 @@ def list_cases(farmer_name: Optional[str] = None, farmer_id: Optional[str] = Non
 
 
 @router.get("/{case_id}")
-def get_case(case_id: str):
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+def get_case(case_id: str, db: Session = Depends(get_db)):
+    result = (
+        db.query(Case, Farmer)
+        .outerjoin(Farmer, Case.farmer_id == Farmer.farmer_id)
+        .filter(Case.case_id == case_id)
+        .first()
+    )
 
-    cursor.execute("""
-        SELECT
-            c.case_id,
-            c.farmer_id,
-            COALESCE(c.farmer_name, 'Unknown Farmer') AS farmer_name,
-            c.district,
-            c.crop,
-            c.disease_detected,
-            c.confidence,
-            c.severity,
-            c.latitude,
-            c.longitude,
-            c.image_url,
-            c.status,
-            c.created_at,
-            er.expert_response,
-            er.audio_url AS expert_audio_url
-        FROM cases c
-        LEFT JOIN (
-            SELECT er1.case_id, er1.expert_response, er1.audio_url
-            FROM expert_responses er1
-            INNER JOIN (
-                SELECT case_id, MAX(created_at) as max_created
-                FROM expert_responses
-                GROUP BY case_id
-            ) er2 ON er1.case_id = er2.case_id AND er1.created_at = er2.max_created
-        ) er ON c.case_id = er.case_id
-        WHERE c.case_id = ?
-    """, (case_id,))
+    if result is None:
+        raise HTTPException(status_code=404, detail="Case not found.")
 
-    row = cursor.fetchone()
-    conn.close()
+    case, farmer = result
+    resolved_farmer_name = (
+        farmer.name if farmer and farmer.name
+        else (case.farmer_name or "Unknown Farmer")
+    )
 
-    if row is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Case not found."
-        )
-
-    conf_val = row["confidence"] if row["confidence"] is not None else 0.0
-    confidence_percent = round(float(conf_val) * 100) if float(conf_val) <= 1.0 else round(float(conf_val))
-
-    raw_status = str(row["status"]).lower() if row["status"] else "pending"
-    has_expert_response = bool(row["expert_response"])
-    status_label = "Resolved" if ("resolve" in raw_status or has_expert_response) else "Pending Expert"
+    latest_response = (
+        db.query(ExpertResponse)
+        .filter(ExpertResponse.case_id == case_id)
+        .order_by(desc(ExpertResponse.created_at))
+        .first()
+    )
 
     return {
-        "case_id": row["case_id"],
-        "farmer_id": row["farmer_id"],
-        "farmer_name": row["farmer_name"],
-        "district": row["district"],
-        "crop": row["crop"],
-        "disease": row["disease_detected"],
-        "confidence": confidence_percent,
-        "severity": row["severity"] if "severity" in row.keys() and row["severity"] else "Medium",
-        "latitude": row["latitude"],
-        "longitude": row["longitude"],
-        "image_url": row["image_url"] if "image_url" in row.keys() else None,
-        "status": status_label,
-        "expert_response": row["expert_response"],
-        "audio_url": row["expert_audio_url"],
-        "created_at": row["created_at"],
+        "case_id": case.case_id,
+        "farmer_id": case.farmer_id,
+        "farmer_name": resolved_farmer_name,
+        "district": case.district,
+        "crop": case.crop,
+        "disease": case.disease_detected,
+        "confidence": _confidence_percent(case.confidence),
+        "severity": case.severity or "Medium",
+        "latitude": case.latitude,
+        "longitude": case.longitude,
+        "image_url": case.image_url,
+        "status": _status_label(case.status, has_response=bool(latest_response)),
+        "expert_response": latest_response.expert_response if latest_response else None,
+        "audio_url": getattr(latest_response, "audio_url", None) if latest_response else None,
+        "created_at": str(case.created_at) if case.created_at else None,
     }
 
 
-class ExpertResponse(BaseModel):
+class ExpertResponseIn(BaseModel):
     expert_response: str
     language: Optional[str] = "mr"
 
 
 @router.post("/{case_id}/resolve")
-def resolve_case(case_id: str, data: ExpertResponse):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT case_id FROM cases WHERE case_id = ?", (case_id,))
-    if cursor.fetchone() is None:
-        conn.close()
+def resolve_case(case_id: str, data: ExpertResponseIn, db: Session = Depends(get_db)):
+    case = db.query(Case).filter(Case.case_id == case_id).first()
+    if case is None:
         raise HTTPException(status_code=404, detail="Case not found.")
 
     audio_url = generate_tts_audio(data.expert_response, lang=data.language or "mr")
 
-    cursor.execute("""
-        INSERT INTO expert_responses (case_id, expert_response, audio_url)
-        VALUES (?, ?, ?)
-    """, (case_id, data.expert_response, audio_url))
+    new_response = ExpertResponse(
+        case_id=case_id,
+        expert_response=data.expert_response
+    )
+    if hasattr(new_response, "audio_url"):
+        setattr(new_response, "audio_url", audio_url)
 
-    cursor.execute("""
-        UPDATE cases
-        SET status = 'RESOLVED'
-        WHERE case_id = ?
-    """, (case_id,))
-
-    conn.commit()
-    conn.close()
+    db.add(new_response)
+    case.status = "RESOLVED"
+    db.commit()
 
     return {
         "status": "success",

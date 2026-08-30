@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application") version "8.4.1"
     id("org.jetbrains.kotlin.android") version "1.9.23"
+    id("com.google.devtools.ksp") version "1.9.23-1.0.20"
 }
 
 android {
@@ -69,6 +70,7 @@ dependencies {
     val roomVersion = "2.6.1"
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
 
     // CameraX for leaf capture
     val cameraxVersion = "1.3.3"
