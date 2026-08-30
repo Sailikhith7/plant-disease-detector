@@ -1,5 +1,10 @@
 package com.kisanmitra.ui.screens
 
+import android.content.Context
+import android.content.Intent
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -8,7 +13,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +33,45 @@ import com.kisanmitra.data.remote.ExpertDeskCaseDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.URLEncoder
+
+private fun sharePrescriptionOnWhatsApp(context: Context, item: ExpertDeskCaseDto) {
+    val rawMessage = """
+        🌱 *किसान मित्र - तज्ज्ञ ई-प्रिस्क्रिप्शन* 🩺
+        ----------------------------------
+        👤 *शेतकरी:* ${item.farmerName ?: "Farmer"} (${item.district ?: "Maharashtra"})
+        🌿 *पीक:* ${item.crop?.replaceFirstChar { it.uppercase() } ?: "Crop"}
+        ⚠️ *आढळलेला रोग:* ${item.disease?.replace('_', ' ') ?: "N/A"}
+        
+        📋 *तज्ज्ञांचे निदान व औषधोपचार:*
+        ${item.expertResponse ?: "शिफारस उपलब्ध नाही."}
+        ----------------------------------
+        _कृषी सेवा केंद्र / खत विक्रेत्यासाठी मार्गदर्शक पावती._
+    """.trimIndent()
+
+    try {
+        val encodedMessage = URLEncoder.encode(rawMessage, "UTF-8")
+        val whatsappUri = Uri.parse("https://api.whatsapp.com/send?text=$encodedMessage")
+        val whatsappIntent = Intent(Intent.ACTION_VIEW, whatsappUri).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        context.startActivity(whatsappIntent)
+    } catch (e: Exception) {
+        try {
+            val generalIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, rawMessage)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            val chooser = Intent.createChooser(generalIntent, "Share Prescription via").apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(chooser)
+        } catch (err: Exception) {
+            Toast.makeText(context, "Unable to share message", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,7 +79,6 @@ fun ExpertDeskScreen(
     selectedLanguage: String,
     currentFarmerName: String = ""
 ) {
-    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var casesList by remember { mutableStateOf<List<ExpertDeskCaseDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
@@ -139,7 +184,17 @@ fun ExpertDeskCard(
     item: ExpertDeskCaseDto,
     selectedLanguage: String
 ) {
+    val context = LocalContext.current
     val isResolved = item.status.equals("Resolved", ignoreCase = true) || !item.expertResponse.isNullOrBlank()
+    var isAudioPlaying by remember { mutableStateOf(false) }
+    var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            mediaPlayer?.release()
+            mediaPlayer = null
+        }
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -255,6 +310,111 @@ fun ExpertDeskCard(
                         color = Color(0xFF1F2937),
                         modifier = Modifier.padding(10.dp),
                         lineHeight = 18.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Voice Note Button
+                Button(
+                    onClick = {
+                        val audioPath = item.audioUrl
+                        if (audioPath.isNullOrBlank()) {
+                            Toast.makeText(context, "Voice note generating or unavailable", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+
+                        val fullUrl = if (audioPath.startsWith("http")) {
+                            audioPath
+                        } else {
+                            "http://192.168.137.1:8000/${audioPath.removePrefix("/")}"
+                        }
+
+                        try {
+                            if (mediaPlayer == null) {
+                                mediaPlayer = MediaPlayer().apply {
+                                    setAudioAttributes(
+                                        AudioAttributes.Builder()
+                                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                                            .build()
+                                    )
+                                    setDataSource(fullUrl)
+                                    prepareAsync()
+                                    setOnPreparedListener {
+                                        start()
+                                        isAudioPlaying = true
+                                        Toast.makeText(context, "Playing Prescription Voice Note...", Toast.LENGTH_SHORT).show()
+                                    }
+                                    setOnCompletionListener {
+                                        isAudioPlaying = false
+                                        release()
+                                        mediaPlayer = null
+                                    }
+                                    setOnErrorListener { _, what, extra ->
+                                        isAudioPlaying = false
+                                        release()
+                                        mediaPlayer = null
+                                        Toast.makeText(context, "Audio error (code: $what, $extra)", Toast.LENGTH_SHORT).show()
+                                        true
+                                    }
+                                }
+                            } else {
+                                mediaPlayer?.let { player ->
+                                    if (player.isPlaying) {
+                                        player.pause()
+                                        isAudioPlaying = false
+                                    } else {
+                                        player.start()
+                                        isAudioPlaying = true
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            isAudioPlaying = false
+                            mediaPlayer?.release()
+                            mediaPlayer = null
+                            Toast.makeText(context, "Audio player error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isAudioPlaying) Color(0xFFC62828) else Color(0xFF166534)
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isAudioPlaying) "⏸️ Pause Voice Prescription" else "🔊 Listen Doctor Voice Note (मराठी)",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // WhatsApp Share Button
+                OutlinedButton(
+                    onClick = { sharePrescriptionOnWhatsApp(context, item) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFF25D366)
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Share",
+                        tint = Color(0xFF25D366)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "📲 WhatsApp वर पावती शेअर करा (Share to Shop)",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF15803D)
                     )
                 }
             }

@@ -12,13 +12,15 @@ try:
 except ImportError:
     voice_router_available = False
 
-UPLOAD_DIR = "uploads"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Static directory for generated audio/TTS files
-STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
-os.makedirs(STATIC_DIR, exist_ok=True)
-os.makedirs(os.path.join(STATIC_DIR, "audio"), exist_ok=True)
+# Absolute Static Directory
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+AUDIO_DIR = os.path.join(STATIC_DIR, "audio")
+os.makedirs(AUDIO_DIR, exist_ok=True)
 
 app = FastAPI(
     title="PikRakshak - Plant Disease Detection & Advisory API",

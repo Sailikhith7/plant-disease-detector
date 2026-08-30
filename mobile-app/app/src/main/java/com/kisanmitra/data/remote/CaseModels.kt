@@ -19,6 +19,7 @@ data class ExpertDeskCaseDto(
     @SerializedName("image_url") val imageUrl: String? = null,
     @SerializedName("status") val status: String? = "Pending Expert",
     @SerializedName("expert_response") val expertResponse: String? = null,
+    @SerializedName("audio_url") val audioUrl: String? = null,
     @SerializedName("created_at") val createdAt: String? = null
 )
 
