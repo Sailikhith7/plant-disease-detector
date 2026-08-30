@@ -1,5 +1,5 @@
 export type MockCase = {
-  case_id: number;
+  case_id: string;
   farmer_name: string;
   crop: string;
   disease: string;
@@ -34,7 +34,7 @@ export const mockCases: MockCase[] = [
 
   {
     
-    case_id: 101,
+    case_id: "101",
     farmer_name: "Ramesh Patil",
     crop: "Cotton",
     disease: "Pink Bollworm",
@@ -47,7 +47,7 @@ export const mockCases: MockCase[] = [
   },
 
   {
-    case_id: 111,
+    case_id: "111",
     farmer_name: "Santosh Shinde",
     crop: "Cotton",
     disease: "Pink Bollworm",
@@ -60,7 +60,7 @@ export const mockCases: MockCase[] = [
   },
 
   {
-    case_id: 112,
+    case_id: "112",
     farmer_name: "Ganesh Rathod",
     crop: "Cotton",
     disease: "Pink Bollworm",
@@ -73,7 +73,7 @@ export const mockCases: MockCase[] = [
   },
 
   {
-    case_id: 113,
+    case_id: "113",
     farmer_name: "Vilas Pawar",
     crop: "Cotton",
     disease: "Pink Bollworm",
@@ -86,7 +86,7 @@ export const mockCases: MockCase[] = [
   },
 
   {
-    case_id: 114,
+    case_id: "114",
     farmer_name: "Mahesh More",
     crop: "Cotton",
     disease: "Pink Bollworm",
@@ -99,7 +99,7 @@ export const mockCases: MockCase[] = [
   },
 
   {
-    case_id: 115,
+    case_id: "115",
     farmer_name: "Ravi Jadhav",
     crop: "Cotton",
     disease: "Pink Bollworm",
@@ -116,7 +116,7 @@ export const mockCases: MockCase[] = [
   // =========================================
 
   {
-    case_id: 102,
+    case_id: "102",
     farmer_name: "Suresh Shinde",
     crop: "Soybean",
     disease: "Rust",
@@ -129,7 +129,7 @@ export const mockCases: MockCase[] = [
   },
 
   {
-    case_id: 103,
+    case_id: "103",
     farmer_name: "Mahesh Jadhav",
     crop: "Onion",
     disease: "Purple Blotch",
@@ -142,7 +142,7 @@ export const mockCases: MockCase[] = [
   },
 
   {
-    case_id: 104,
+    case_id: "104",
     farmer_name: "Ganesh More",
     crop: "Sugarcane",
     disease: "Leaf Spot",
@@ -155,7 +155,7 @@ export const mockCases: MockCase[] = [
   },
 
   {
-    case_id: 105,
+    case_id: "105",
     farmer_name: "Vijay Pawar",
     crop: "Cotton",
     disease: "Leaf Curl",
@@ -172,7 +172,7 @@ export const mockCases: MockCase[] = [
   // =========================================
 
   {
-    case_id: 106,
+    case_id: "106",
     farmer_name: "Prakash Deshmukh",
     crop: "Cotton",
     disease: "Pink Bollworm",
@@ -190,7 +190,7 @@ export const mockCases: MockCase[] = [
   },
 
   {
-    case_id: 107,
+    case_id: "107",
     farmer_name: "Sunil Patil",
     crop: "Soybean",
     disease: "Rust",
@@ -208,7 +208,7 @@ export const mockCases: MockCase[] = [
   },
 
   {
-    case_id: 108,
+    case_id: "108",
     farmer_name: "Ajay More",
     crop: "Onion",
     disease: "Purple Blotch",
@@ -226,7 +226,7 @@ export const mockCases: MockCase[] = [
   },
 
   {
-    case_id: 109,
+    case_id: "109",
     farmer_name: "Sachin Jadhav",
     crop: "Sugarcane",
     disease: "Leaf Spot",
@@ -244,7 +244,7 @@ export const mockCases: MockCase[] = [
   },
 
   {
-    case_id: 110,
+    case_id: "110",
     farmer_name: "Dinesh Pawar",
     crop: "Cotton",
     disease: "Leaf Curl",

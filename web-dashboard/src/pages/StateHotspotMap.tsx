@@ -73,6 +73,82 @@ const DISTRICT_COORDINATES: Record<string, [number, number]> = {
   mumbai: [19.076, 72.8777],
 };
 
+// =====================================================
+// MANUAL ADVISORY DISTRICTS
+// =====================================================
+const MANUAL_DISTRICTS = [
+  "Yavatmal",
+  "Nagpur",
+  "Nashik",
+  "Nanded",
+  "Amravati",
+  "Akola",
+  "Pune",
+  "Sangli",
+  "Kolhapur",
+  "Wardha",
+  "Latur",
+  "Jalgaon",
+  "Dhule",
+  "Solapur",
+  "Satara",
+];
+
+// =====================================================
+// MODEL CROPS + EXACT MODEL CLASSES
+// (must match your ML model's label set)
+// =====================================================
+const MODEL_OPTIONS = {
+  Cotton: [
+    "cotton_bacterial_blight",
+    "cotton_curl_virus",
+    "cotton_fussarium_wilt",
+    "cotton_healthy",
+  ],
+  Groundnut: [
+    "groundnut_early_leaf_spot",
+    "groundnut_early_rust",
+    "groundnut_healthy_leaf",
+    "groundnut_late_leaf_spot",
+    "groundnut_late_rust",
+    "groundnut_nutrition_deficiency",
+  ],
+  Ragi: [
+    "ragi_downy",
+    "ragi_healthy",
+    "ragi_mottle",
+    "ragi_seedling",
+    "ragi_smut",
+    "ragi_wilt",
+  ],
+  Rice: [
+    "rice_bacterial_leaf_blight",
+    "rice_brown_spot",
+    "rice_healthy",
+    "rice_leaf_blast",
+    "rice_leaf_scald",
+    "rice_sheath_blight",
+  ],
+  Sugarcane: [
+    "sugarcane_healthy",
+    "sugarcane_mosaic",
+    "sugarcane_redrot",
+    "sugarcane_rust",
+    "sugarcane_yellow",
+  ],
+} as const;
+
+type ModelCrop = keyof typeof MODEL_OPTIONS;
+
+const MODEL_CROPS = Object.keys(MODEL_OPTIONS) as ModelCrop[];
+
+function formatModelLabel(label: string) {
+  return label
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 function getRiskColor(risk?: string) {
   if (risk === "High") return "#dc2626";
   if (risk === "Medium") return "#f59e0b";
@@ -88,6 +164,22 @@ function StateHotspotMap({ cases }: StateHotspotMapProps) {
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // =====================================================
+  // MANUAL BROADCAST STATE
+  // =====================================================
+  const [manualDistricts, setManualDistricts] = useState<string[]>([]);
+  const [manualCrop, setManualCrop] = useState<ModelCrop>("Cotton");
+  const [manualDisease, setManualDisease] = useState(MODEL_OPTIONS.Cotton[0]);
+  const [manualMessage, setManualMessage] = useState("");
+  const [isManualBroadcasting, setIsManualBroadcasting] = useState(false);
+  const [manualBanner, setManualBanner] = useState<string | null>(null);
+  const [manualError, setManualError] = useState<string | null>(null);
+
+  // Reset disease choice whenever the crop changes
+  useEffect(() => {
+    setManualDisease(MODEL_OPTIONS[manualCrop][0]);
+  }, [manualCrop]);
 
   // =====================================================
   // LOAD MAHARASHTRA DISTRICT GEOJSON
@@ -295,6 +387,80 @@ function StateHotspotMap({ cases }: StateHotspotMapProps) {
     }
   }
 
+  // =====================================================
+  // MANUAL DISTRICT SELECTION
+  // =====================================================
+  function toggleManualDistrict(district: string) {
+    setManualDistricts((previous) => {
+      if (previous.includes(district)) {
+        return previous.filter((item) => item !== district);
+      }
+      return [...previous, district];
+    });
+  }
+
+  // =====================================================
+  // MANUAL BROADCAST (officer picks district(s) + crop +
+  // disease class directly, independent of auto-detected
+  // outbreaks)
+  // =====================================================
+  async function handleManualBroadcast() {
+    setManualError(null);
+    setManualBanner(null);
+
+    if (manualDistricts.length === 0) {
+      setManualError("Please select at least one district.");
+      return;
+    }
+
+    if (!manualMessage.trim()) {
+      setManualError("Please enter an advisory message.");
+      return;
+    }
+
+    try {
+      setIsManualBroadcasting(true);
+
+      let successfulDistricts = 0;
+      const failedDistricts: string[] = [];
+
+      for (const district of manualDistricts) {
+        try {
+          await sendBroadcastAdvisory({
+            district,
+            crop: manualCrop,
+            disease: manualDisease,
+            custom_message: manualMessage.trim(),
+          });
+          successfulDistricts += 1;
+        } catch (err) {
+          console.error(`Manual broadcast failed for ${district}:`, err);
+          failedDistricts.push(district);
+        }
+      }
+
+      if (failedDistricts.length === 0) {
+        setManualBanner(
+          `Advisory successfully dispatched to ${successfulDistricts} selected district${successfulDistricts === 1 ? "" : "s"}.`
+        );
+      } else {
+        setManualBanner(
+          `Advisory sent to ${successfulDistricts} district${successfulDistricts === 1 ? "" : "s"}. Failed: ${failedDistricts.join(", ")}.`
+        );
+      }
+
+      setManualDistricts([]);
+      setManualMessage("");
+    } catch (err) {
+      console.error("Manual broadcast error:", err);
+      setManualError(
+        err instanceof Error ? err.message : "Failed to dispatch manual advisory."
+      );
+    } finally {
+      setIsManualBroadcasting(false);
+    }
+  }
+
   const pendingCases = cases.filter(
     (item) => item.status === "Pending Expert" || item.status === "OPEN"
   ).length;
@@ -483,6 +649,198 @@ function StateHotspotMap({ cases }: StateHotspotMapProps) {
         )}
       </div>
 
+      {/* ================= MANUAL ADVISORY BROADCAST ================= */}
+      <div className="outbreak-table-card" style={{ marginTop: "24px" }}>
+        <div className="outbreak-table-header">
+          <div>
+            <h3>📢 Manual Advisory Broadcast</h3>
+            <p>
+              Select one or more districts, choose a model crop and disease
+              class, and send your own advisory — independent of
+              auto-detected outbreaks.
+            </p>
+          </div>
+        </div>
+
+        {manualBanner && (
+          <div
+            style={{
+              background: "#dcfce7",
+              color: "#166534",
+              padding: "12px 16px",
+              margin: "0 24px 18px",
+              borderRadius: "10px",
+              fontWeight: 600,
+            }}
+          >
+            ✅ {manualBanner}
+          </div>
+        )}
+
+        {manualError && (
+          <div
+            style={{
+              background: "#fee2e2",
+              color: "#b91c1c",
+              padding: "12px 16px",
+              margin: "0 24px 18px",
+              borderRadius: "10px",
+              fontWeight: 600,
+            }}
+          >
+            ❌ {manualError}
+          </div>
+        )}
+
+        {/* DISTRICTS */}
+        <div style={{ padding: "0 24px 22px" }}>
+          <label style={{ display: "block", fontWeight: 700, marginBottom: "10px" }}>
+            Select Districts
+          </label>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+              gap: "8px",
+              maxWidth: "1000px",
+            }}
+          >
+            {MANUAL_DISTRICTS.map((district) => {
+              const selected = manualDistricts.includes(district);
+
+              return (
+                <label
+                  key={district}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "9px 10px",
+                    border: selected ? "2px solid #166534" : "1px solid #e2e8f0",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    background: selected ? "#f0fdf4" : "#ffffff",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={() => toggleManualDistrict(district)}
+                  />
+                  <span>{district}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* CROP + DISEASE */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(250px, 350px) minmax(300px, 420px)",
+            gap: "16px",
+            padding: "0 24px 22px",
+          }}
+        >
+          <div>
+            <label style={{ display: "block", fontWeight: 700, marginBottom: "8px" }}>
+              Crop
+            </label>
+            <select
+              value={manualCrop}
+              onChange={(event) => setManualCrop(event.target.value as ModelCrop)}
+              style={{
+                width: "100%",
+                padding: "11px 12px",
+                border: "1px solid #cbd5e1",
+                borderRadius: "8px",
+                background: "#ffffff",
+              }}
+            >
+              {MODEL_CROPS.map((crop) => (
+                <option key={crop} value={crop}>
+                  {crop}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: "block", fontWeight: 700, marginBottom: "8px" }}>
+              Disease / Model Class
+            </label>
+            <select
+              value={manualDisease}
+              onChange={(event) => setManualDisease(event.target.value)}
+              style={{
+                width: "100%",
+                padding: "11px 12px",
+                border: "1px solid #cbd5e1",
+                borderRadius: "8px",
+                background: "#ffffff",
+              }}
+            >
+              {MODEL_OPTIONS[manualCrop].map((disease) => (
+                <option key={disease} value={disease}>
+                  {formatModelLabel(disease)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* ADVISORY MESSAGE */}
+        <div style={{ padding: "0 24px 22px" }}>
+          <label style={{ display: "block", fontWeight: 700, marginBottom: "8px" }}>
+            Advisory Message
+          </label>
+          <textarea
+            rows={5}
+            value={manualMessage}
+            onChange={(event) => setManualMessage(event.target.value)}
+            placeholder="Enter official advisory message in Marathi or English..."
+            disabled={isManualBroadcasting}
+            style={{
+              width: "100%",
+              maxWidth: "1000px",
+              padding: "12px",
+              border: "1px solid #cbd5e1",
+              borderRadius: "8px",
+              resize: "vertical",
+              boxSizing: "border-box",
+              fontFamily: "inherit",
+            }}
+          />
+        </div>
+
+        {/* MANUAL DISPATCH */}
+        <div
+          style={{
+            padding: "0 24px 24px",
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            className="broadcast-button"
+            type="button"
+            onClick={handleManualBroadcast}
+            disabled={isManualBroadcasting}
+            style={{ padding: "12px 22px", opacity: isManualBroadcasting ? 0.7 : 1 }}
+          >
+            {isManualBroadcasting ? "Sending..." : "📢 Dispatch Advisory"}
+          </button>
+
+          <span style={{ color: "#64748b", fontSize: "14px" }}>
+            {manualDistricts.length} district{manualDistricts.length === 1 ? "" : "s"} selected
+          </span>
+        </div>
+      </div>
+
       {/* RISK LEGEND */}
       <div className="risk-legend">
         <div>
@@ -499,7 +857,7 @@ function StateHotspotMap({ cases }: StateHotspotMapProps) {
         </div>
       </div>
 
-      {/* BROADCAST MODAL */}
+      {/* BROADCAST MODAL (auto-detected outbreak) */}
       {isModalOpen && selectedOutbreak && (
         <div
           className="modal-overlay"
