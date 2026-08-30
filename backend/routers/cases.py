@@ -1,5 +1,6 @@
 ﻿import os
 import sqlite3
+from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -76,12 +77,12 @@ init_cases_db()
 
 @router.get("")
 @router.get("/")
-def list_cases():
+def list_cases(farmer_name: Optional[str] = None, farmer_id: Optional[str] = None):
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    cursor.execute("""
+    query = """
         SELECT
             c.case_id,
             c.farmer_id,
@@ -95,12 +96,33 @@ def list_cases():
             c.longitude,
             c.image_url,
             c.status,
-            c.created_at
+            c.created_at,
+            (
+                SELECT er.expert_response
+                FROM expert_responses er
+                WHERE er.case_id = c.case_id
+                ORDER BY er.created_at DESC
+                LIMIT 1
+            ) AS expert_response
         FROM cases c
         LEFT JOIN farmers f ON c.farmer_id = f.farmer_id
-        ORDER BY c.created_at DESC
-    """)
+        WHERE 1=1
+    """
+    params = []
 
+    # Exclude invalid/empty records
+    query += " AND COALESCE(f.full_name, c.farmer_name, '') NOT IN ('Unknown Farmer', '')"
+
+    if farmer_name and farmer_name.strip():
+        query += " AND LOWER(COALESCE(f.full_name, c.farmer_name)) = LOWER(?)"
+        params.append(farmer_name.strip())
+    elif farmer_id and farmer_id.strip():
+        query += " AND c.farmer_id = ?"
+        params.append(farmer_id.strip())
+
+    query += " ORDER BY c.created_at DESC"
+
+    cursor.execute(query, tuple(params))
     rows = cursor.fetchall()
     conn.close()
 
@@ -110,7 +132,8 @@ def list_cases():
         confidence_percent = round(float(conf_val) * 100) if float(conf_val) <= 1.0 else round(float(conf_val))
 
         raw_status = str(row["status"]).lower() if row["status"] else "pending"
-        status_label = "Resolved" if "resolve" in raw_status else "Pending Expert"
+        has_expert_response = bool(row["expert_response"])
+        status_label = "Resolved" if ("resolve" in raw_status or has_expert_response) else "Pending Expert"
 
         cases.append({
             "case_id": row["case_id"],
@@ -125,6 +148,7 @@ def list_cases():
             "longitude": row["longitude"],
             "image_url": row["image_url"],
             "status": status_label,
+            "expert_response": row["expert_response"],
             "created_at": row["created_at"],
         })
 
@@ -179,6 +203,10 @@ def get_case(case_id: str):
     conf_val = row["confidence"] if row["confidence"] is not None else 0.0
     confidence_percent = round(float(conf_val) * 100) if float(conf_val) <= 1.0 else round(float(conf_val))
 
+    raw_status = str(row["status"]).lower() if row["status"] else "pending"
+    has_expert_response = bool(row["expert_response"])
+    status_label = "Resolved" if ("resolve" in raw_status or has_expert_response) else "Pending Expert"
+
     return {
         "case_id": row["case_id"],
         "farmer_id": row["farmer_id"],
@@ -191,7 +219,7 @@ def get_case(case_id: str):
         "latitude": row["latitude"],
         "longitude": row["longitude"],
         "image_url": row["image_url"] if "image_url" in row.keys() else None,
-        "status": row["status"],
+        "status": status_label,
         "expert_response": row["expert_response"],
         "created_at": row["created_at"],
     }
