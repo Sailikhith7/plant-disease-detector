@@ -1,6 +1,6 @@
 {
-    "temperature": 1.113673448562622,
-    "confidence_threshold": 0.85,
+    "temperature": 1.413673448562622,
+    "confidence_threshold": 0.75,
     "num_classes": 27,
     "input_size": [
         224,

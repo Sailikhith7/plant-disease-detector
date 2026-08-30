@@ -25,14 +25,14 @@ if isinstance(labels_data, dict):
 else:
     CLASS_NAMES = labels_data
 
-TEMPERATURE = 1.0
+TEMPERATURE = 1.4
 CONFIDENCE_THRESHOLD = 0.70
 
 if os.path.exists(CALIBRATION_PATH):
     try:
         with open(CALIBRATION_PATH, "r") as f:
             calibration = json.load(f)
-        TEMPERATURE = float(calibration.get("temperature", 1.0))
+        TEMPERATURE = float(calibration.get("temperature", 1.4))
         CONFIDENCE_THRESHOLD = float(calibration.get("confidence_threshold", 0.70))
     except Exception as e:
         print(f"[WARN] Failed to read calibration.json: {e}")
@@ -66,43 +66,35 @@ INPUT_DTYPE = INPUT_DETAILS[0]["dtype"]
 # ============================================================
 
 def is_valid_leaf_image(image: Image.Image) -> tuple[bool, str]:
-    """
-    Validates that the input image contains actual plant foliage and
-    rejects human faces, skin, blank walls, or random objects.
-    """
     img_rgb = image.convert("RGB")
     stat = ImageStat.Stat(img_rgb.convert("L"))
     mean_brightness = stat.mean[0]
     std_dev = stat.stddev[0]
 
-    # 1. Dark/Overexposed Filter
     if mean_brightness < 25.0 or std_dev < 12.0:
-        return False, "Image is too dark or empty. Please ensure proper lighting."
+        return False, "Image is too dark. Please ensure proper lighting."
     if mean_brightness > 240.0 and std_dev < 12.0:
         return False, "Image is overexposed. Please adjust lighting."
 
-    # Convert to NumPy array
     arr = np.array(img_rgb, dtype=np.float32)
     r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
 
-    # 2. Vegetation Color Check: Excess Green Index (2G - R - B) & Chlorotic Yellows
-    # Healthy & diseased crop foliage will have positive greenness or specific yellow/brown leaf hues
+    # 1. Vegetation Color Check (Excess Green & Yellow leaf spots)
     excess_green = (2.0 * g) - r - b
-    green_pixels = (excess_green > 10.0) | ((g > 60) & (r > 60) & (g > b + 15))  # Green and yellowed diseased foliage
+    green_pixels = (excess_green > 10.0) | ((g > 50) & (r > 40) & (g > b + 10))
     green_ratio = np.count_nonzero(green_pixels) / (arr.shape[0] * arr.shape[1])
 
-    # 3. Human Skin Tone Check
-    # Typical normalized skin condition in RGB space: R > G > B, with specific bounds
-    skin_pixels = (r > 95) & (g > 40) & (b > 20) & ((r - g) > 15) & (r > b) & ((np.maximum(r, np.maximum(g, b)) - np.minimum(r, np.minimum(g, b))) > 15)
+    # 2. Aggressive Skin / Portrait Tone Check (Covers warm indoor lighting & faces)
+    # Human skin under warm lights usually has R > G > B with tight cluster bounds
+    skin_pixels = (r > 60) & (g > 30) & (b > 15) & (r > g) & (g > b) & ((r - g) < 60) & (np.abs(r.astype(int) - g.astype(int)) < 50)
     skin_ratio = np.count_nonzero(skin_pixels) / (arr.shape[0] * arr.shape[1])
 
-    # If skin dominates the photo, reject as human/selfie
-    if skin_ratio > 0.25 and green_ratio < 0.10:
-        return False, "No leaf detected. Please focus the camera on an infected crop leaf."
+    # If skin/portrait features take up more than 15% of the frame and green is low, block it immediately!
+    if skin_ratio > 0.15 and green_ratio < 0.25:
+        return False, "Human subject or portrait detected. Please take a close-up photo of an infected plant leaf."
 
-    # If there is virtually no foliage in the frame, reject random objects
-    if green_ratio < 0.08:
-        return False, "No plant foliage detected. Please center an infected leaf in the frame."
+    if green_ratio < 0.15:
+        return False, "No clear plant foliage detected. Please move the camera closer and center the leaf."
 
     return True, "Valid"
 
@@ -153,7 +145,7 @@ def softmax(logits):
 def predict(image_bytes: bytes) -> dict:
     image = Image.open(io.BytesIO(image_bytes))
 
-    # 1. Pre-Inference Sanity Validation (from Step 1)
+    # 1. Pre-Inference Sanity Validation
     is_valid, reason = is_valid_leaf_image(image)
     if not is_valid:
         return {
@@ -179,12 +171,10 @@ def predict(image_bytes: bytes) -> dict:
         if scale > 0:
             raw_output = scale * (raw_output.astype(np.float32) - zero_point)
 
-    # -------------------------------------------------------------
-    # STEP 2: OPEN-SET MAXIMUM LOGIT THRESHOLDING
-    # -------------------------------------------------------------
+    # 3. Open-Set Maximum Logit Thresholding
     max_logit = float(np.max(raw_output))
     
-    # Calculate calibrated probabilities for diagnostic logging
+    # Calculate calibrated probabilities
     calibrated_logits = raw_output / TEMPERATURE
     probabilities = softmax(calibrated_logits)
 
@@ -198,9 +188,9 @@ def predict(image_bytes: bytes) -> dict:
     best_disease = CLASS_NAMES[best_index]
     best_confidence = float(probabilities[best_index])
     
-    # If the maximum logit is below 3.5, the model does not recognize any clear disease pattern
-    if max_logit < 3.5:
-        print(f"[OOD DETECTED] Max Logit is {max_logit:.3f} (< 3.5). Rejecting as non-crop/unrecognized.")
+    # Check OOD logit safety limit
+    if max_logit < 5.0:
+        print(f"[OOD DETECTED] Max Logit is {max_logit:.3f} (< 5.0). Rejecting as non-crop/unrecognized.")
         return {
             "crop": "Unknown",
             "disease": "Unrecognized Sample",
@@ -210,12 +200,26 @@ def predict(image_bytes: bytes) -> dict:
             "top_3": top_predictions
         }
 
-    # If logit is strong, process normally
+    # -------------------------------------------------------------
+    # METHOD 3: CROSS-CLASS CROP CONSISTENCY CHECK
+    # -------------------------------------------------------------
+    top_crops = [CLASS_NAMES[idx].split("_")[0] for idx in top_indices]
+    # If the top 3 predictions belong to conflicting plant families (e.g., Rice vs Cotton) and confidence < 85%
+    is_crop_conflicted = len(set(top_crops)) > 1 and best_confidence < 0.85
+
+    if is_crop_conflicted:
+        print(f"[CONFLICT WARNING] Top predictions span conflicting crops: {top_crops}. Forcing uncertain status.")
+        status = "uncertain"
+        response_text = f"The model is uncertain between multiple crop types ({', '.join(set(top_crops))}). Please take a clearer close-up shot."
+    else:
+        status = "confident" if best_confidence >= CONFIDENCE_THRESHOLD else "uncertain"
+        response_text = ""
+
     crop = best_disease.split("_")[0]
-    status = "confident" if best_confidence >= CONFIDENCE_THRESHOLD else "uncertain"
 
     print("--- PREDICTION DIAGNOSTIC ---")
     print(f"Top Class: {best_disease} | Conf: {best_confidence*100:.2f}% | Max Logit: {max_logit:.3f} | Status: {status}")
+    print(f"Top Crops Contenders: {top_crops}")
     print("-----------------------------")
 
     return {
@@ -223,5 +227,6 @@ def predict(image_bytes: bytes) -> dict:
         "disease": best_disease,
         "confidence": best_confidence,
         "status": status,
+        "response": response_text,
         "top_3": top_predictions
     }
