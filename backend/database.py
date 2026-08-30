@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from dotenv import load_dotenv
-from sqlalchemy import Column, DateTime, Float, Integer, String, Text, create_engine
+from sqlalchemy import Column, Float, Integer, String, Text, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 load_dotenv()
@@ -49,7 +49,8 @@ class ExpertResponse(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     case_id = Column(String(100), index=True)
-    expert_response = Column(Text)
+    expert_response = Column(Text, nullable=False)
+    audio_url = Column(String(500), nullable=True)  # <-- Added missing audio column
     created_at = Column(String(100), default=lambda: datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
 
 

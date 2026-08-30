@@ -7,18 +7,26 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, text
 from gtts import gTTS
 
-from backend.database import get_db, Case, Farmer, ExpertResponse, Base, engine
+from backend.database import get_db, Case, ExpertResponse, Base, engine
 
-# Ensure tables are created on whichever DB DATABASE_URL points to
+# Ensure tables exist
 Base.metadata.create_all(bind=engine)
 
-# Dynamically ensure audio_url column exists in expert_responses if using SQLite/Postgres
+# Auto-migrate SQLite/Postgres to add audio_url if missing
 try:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE expert_responses ADD COLUMN IF NOT EXISTS audio_url VARCHAR"))
-        conn.commit()
-except Exception:
-    pass
+    with engine.begin() as conn:
+        # Check existing columns in expert_responses
+        res = conn.execute(text("PRAGMA table_info(expert_responses)")).fetchall()
+        column_names = [r[1] for r in res]
+        if "audio_url" not in column_names:
+            conn.execute(text("ALTER TABLE expert_responses ADD COLUMN audio_url VARCHAR"))
+except Exception as e:
+    # If using Postgres / Neon where PRAGMA doesn't work
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE expert_responses ADD COLUMN IF NOT EXISTS audio_url VARCHAR"))
+    except Exception:
+        pass
 
 router = APIRouter(
     prefix="/cases",
@@ -70,30 +78,20 @@ def list_cases(
     farmer_id: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    query = (
-        db.query(Case, Farmer)
-        .outerjoin(Farmer, Case.farmer_id == Farmer.farmer_id)
-        .order_by(desc(Case.created_at))
-    )
+    query = db.query(Case).order_by(desc(Case.created_at))
 
     if farmer_name and farmer_name.strip():
         search_name = f"%{farmer_name.strip()}%"
-        query = query.filter(
-            (Case.farmer_name.ilike(search_name)) | (Farmer.name.ilike(search_name))
-        )
+        query = query.filter(Case.farmer_name.ilike(search_name))
     elif farmer_id and farmer_id.strip():
         query = query.filter(Case.farmer_id == farmer_id.strip())
 
     rows = query.all()
     cases = []
 
-    for case, farmer in rows:
-        resolved_farmer_name = (
-            farmer.name if farmer and farmer.name
-            else (case.farmer_name or "Unknown Farmer")
-        )
+    for case in rows:
+        resolved_farmer_name = case.farmer_name or "Unknown Farmer"
 
-        # Exclude unknown / blank records
         if resolved_farmer_name in ["Unknown Farmer", ""]:
             continue
 
@@ -130,21 +128,10 @@ def list_cases(
 
 @router.get("/{case_id}")
 def get_case(case_id: str, db: Session = Depends(get_db)):
-    result = (
-        db.query(Case, Farmer)
-        .outerjoin(Farmer, Case.farmer_id == Farmer.farmer_id)
-        .filter(Case.case_id == case_id)
-        .first()
-    )
+    case = db.query(Case).filter(Case.case_id == case_id).first()
 
-    if result is None:
+    if case is None:
         raise HTTPException(status_code=404, detail="Case not found.")
-
-    case, farmer = result
-    resolved_farmer_name = (
-        farmer.name if farmer and farmer.name
-        else (case.farmer_name or "Unknown Farmer")
-    )
 
     latest_response = (
         db.query(ExpertResponse)
@@ -156,7 +143,7 @@ def get_case(case_id: str, db: Session = Depends(get_db)):
     return {
         "case_id": case.case_id,
         "farmer_id": case.farmer_id,
-        "farmer_name": resolved_farmer_name,
+        "farmer_name": case.farmer_name or "Unknown Farmer",
         "district": case.district,
         "crop": case.crop,
         "disease": case.disease_detected,
