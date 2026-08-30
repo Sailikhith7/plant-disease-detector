@@ -20,6 +20,18 @@ interface CaseDao {
     @Query("SELECT * FROM offline_cases WHERE isSynced = 0")
     suspend fun getUnsyncedCases(): List<CaseEntity>
 
-    @Query("UPDATE offline_cases SET isSynced = 1, detectedDisease = :disease, confidence = :confidence WHERE id = :caseId")
-    suspend fun markCaseSynced(caseId: Long, disease: String, confidence: Float)
+    @Query("""
+        UPDATE offline_cases
+        SET isSynced = 1,
+            crop = :crop,
+            detectedDisease = :disease,
+            confidence = :confidence
+        WHERE id = :caseId
+        """)
+    suspend fun markCaseSynced(
+        caseId: Long,
+        crop: String,
+        disease: String,
+        confidence: Float
+    )
 }

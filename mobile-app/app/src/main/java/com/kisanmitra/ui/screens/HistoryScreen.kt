@@ -39,20 +39,20 @@ fun HistoryScreen(selectedLanguage: String = "en") {
 
     // Load all local scan records from Room Database
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            try {
-                val db = AppDatabase.getDatabase(context.applicationContext)
-                val list = db.caseDao().getAllCases()
-                withContext(Dispatchers.Main) {
-                    casesList = list
-                    isLoading = false
-                }
-            } catch (_: Throwable) {
-                withContext(Dispatchers.Main) {
-                    casesList = emptyList()
-                    isLoading = false
-                }
+        try {
+            val db = AppDatabase.getDatabase(context.applicationContext)
+
+            val list = withContext(Dispatchers.IO) {
+                db.caseDao().getAllCases()
             }
+
+            casesList = list
+            isLoading = false
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            casesList = emptyList()
+            isLoading = false
         }
     }
 
@@ -114,6 +114,7 @@ fun HistoryScreen(selectedLanguage: String = "en") {
         }
     }
 }
+
 
 @Composable
 fun StandaloneHistoryCardView(item: CaseEntity, str: Map<String, String>) {

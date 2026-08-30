@@ -10,3 +10,5 @@ class PredictionResponse(BaseModel):
     response: str
     language: str = "en"
     audio_url: Optional[str] = None
+    db_saved: bool = True
+    db_error: Optional[str] = None

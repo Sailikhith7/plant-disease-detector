@@ -1,5 +1,6 @@
 import os
 import uuid
+import traceback
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from sqlalchemy.orm import Session
 
@@ -133,13 +134,22 @@ async def predict_disease(
                 f.write(image_bytes)
         except Exception as e:
             print(f"[IMAGE SAVE WARNING] Could not write image to disk: {e}")
-        image_url = f"http://127.0.0.1:8000/uploads/{image_filename}"
+        image_url = f"http://192.168.137.1:8000/uploads/{image_filename}"
 
     # 3. Lookup district coordinates
     normalized_district = district.strip().lower()
     lat, lon = DISTRICT_COORDINATES.get(normalized_district, (20.3888, 78.1204))
 
     # 4. Save into Cloud PostgreSQL Database via SQLAlchemy
+    #
+    # IMPORTANT: we deliberately do NOT let a DB failure block the response —
+    # the farmer should still get their prediction/advisory even if the save
+    # to the dashboard DB fails. But we now log the REAL exception (with a
+    # traceback) instead of swallowing it, and we tell the caller whether the
+    # save actually succeeded via db_saved/db_error, so this can't fail
+    # silently and invisibly again.
+    db_saved = True
+    db_error = None
     try:
         new_case = Case(
             case_id=case_id,
@@ -159,7 +169,10 @@ async def predict_disease(
         db.commit()
     except Exception as e:
         db.rollback()
-        print(f"[DB ERROR] Failed to record case to Cloud DB: {str(e)}")
+        db_saved = False
+        db_error = str(e)
+        print(f"[DB ERROR] Failed to record case {case_id} to Cloud DB: {e}")
+        print(traceback.format_exc())
 
     # 5. Advisory Response via RAG + LLM
     disease_info = get_disease_information(disease_key)
@@ -208,4 +221,6 @@ async def predict_disease(
         response=advisory_response,
         language=language,
         audio_url=audio_path,
+        db_saved=db_saved,
+        db_error=db_error,
     )
