@@ -178,45 +178,57 @@ object AppStrings {
 suspend fun processAndSaveCase(
     context: Context,
     photoFile: File,
-    crop: String = "Cotton",
+    crop: String = "",
     language: String,
     farmerName: String,
     district: String,
     defaultDisease: String
 ): CaseResponse = withContext(Dispatchers.IO) {
+
     val appContext = context.applicationContext
-    var localId = 0L
 
     try {
-        val db = AppDatabase.getDatabase(appContext)
-        localId = db.caseDao().insertCase(
-            CaseEntity(
-                localImagePath = photoFile.absolutePath,
-                crop = crop.ifBlank { "Cotton" },
-                language = language,
-                latitude = 16.51f,
-                longitude = 80.52f,
-                detectedDisease = defaultDisease,
-                confidence = 0.92f,
-                isSynced = false,
-                createdAt = System.currentTimeMillis()
+        val requestFile =
+            photoFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
+
+        val imagePart =
+            MultipartBody.Part.createFormData(
+                "image",
+                photoFile.name,
+                requestFile
             )
+
+        val langBody =
+            language.toRequestBody(
+                "text/plain".toMediaTypeOrNull()
+            )
+
+        val cropBody =
+            crop.toRequestBody(
+                "text/plain".toMediaTypeOrNull()
+            )
+
+        val farmerNameBody =
+            farmerName.ifBlank { "App Farmer" }
+                .toRequestBody(
+                    "text/plain".toMediaTypeOrNull()
+                )
+
+        val districtBody =
+            district.toRequestBody(
+                "text/plain".toMediaTypeOrNull()
+            )
+
+        val farmerIdBody =
+            "MH_${district.take(3).uppercase()}_001"
+                .toRequestBody(
+                    "text/plain".toMediaTypeOrNull()
+                )
+
+        android.util.Log.d(
+            "NetworkAPI",
+            "Sending crop='$crop' to /api/predict"
         )
-        android.util.Log.d("RoomDB", "Inserted offline case ID: $localId")
-    } catch (e: Throwable) {
-        android.util.Log.e("RoomDB", "Error saving offline case", e)
-    }
-
-    try {
-        val requestFile = photoFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
-        val imagePart = MultipartBody.Part.createFormData("image", photoFile.name, requestFile)
-        val langBody = language.toRequestBody("text/plain".toMediaTypeOrNull())
-        val cropBody = crop.toRequestBody("text/plain".toMediaTypeOrNull())
-        val farmerNameBody = farmerName.ifBlank { "App Farmer" }.toRequestBody("text/plain".toMediaTypeOrNull())
-        val districtBody = district.toRequestBody("text/plain".toMediaTypeOrNull())
-        val farmerIdBody = "MH_${district.take(3).uppercase()}_001".toRequestBody("text/plain".toMediaTypeOrNull())
-
-        android.util.Log.d("NetworkAPI", "Attempting POST to /api/predict...")
 
         val response = ApiClient.apiService.predictDisease(
             image = imagePart,
@@ -227,33 +239,79 @@ suspend fun processAndSaveCase(
             farmerId = farmerIdBody
         )
 
-        android.util.Log.d("NetworkAPI", "Response HTTP Code: ${response.code()}")
-
         if (response.isSuccessful && response.body() != null) {
+
             val body = response.body()!!
-            android.util.Log.d("NetworkAPI", "Prediction Success: Disease=${body.disease}, Conf=${body.confidence}")
-            if (localId > 0) {
-                try {
-                    val db = AppDatabase.getDatabase(appContext)
-                    db.caseDao().markCaseSynced(localId, body.disease, body.confidence)
-                } catch (e: Throwable) {
-                    android.util.Log.e("RoomDB", "Failed to mark synced", e)
-                }
-            }
+
+            android.util.Log.d(
+                "NetworkAPI",
+                "Prediction: crop=${body.crop}, " +
+                    "disease=${body.disease}, " +
+                    "confidence=${body.confidence}"
+            )
+
+            // Save the ACTUAL ML prediction
+            val db = AppDatabase.getDatabase(appContext)
+
+            val localId = db.caseDao().insertCase(
+                CaseEntity(
+                    localImagePath = photoFile.absolutePath,
+                    crop = body.crop,
+                    language = language,
+                    latitude = 16.51f,
+                    longitude = 80.52f,
+                    detectedDisease = body.disease,
+                    confidence = body.confidence,
+                    isSynced = true,
+                    createdAt = System.currentTimeMillis()
+                )
+            )
+
+            android.util.Log.d(
+                "RoomDB",
+                "Saved prediction ID=$localId, crop=${body.crop}"
+            )
+
             return@withContext body
-        } else {
-            val err = response.errorBody()?.string()
-            android.util.Log.e("NetworkAPI", "Backend returned error: $err")
         }
+
+        android.util.Log.e(
+            "NetworkAPI",
+            "Backend returned HTTP ${response.code()}"
+        )
+
     } catch (e: Throwable) {
-        android.util.Log.e("NetworkAPI", "Network request failed", e)
+
+        android.util.Log.e(
+            "NetworkAPI",
+            "Prediction/save failed",
+            e
+        )
     }
 
+    // Fallback if backend is unavailable
     val str = AppStrings.get(language)
-    return@withContext CaseResponse(
-        crop = crop,
+
+    val db = AppDatabase.getDatabase(appContext)
+
+    db.caseDao().insertCase(
+        CaseEntity(
+            localImagePath = photoFile.absolutePath,
+            crop = crop.ifBlank { "Unknown" },
+            language = language,
+            latitude = 16.51f,
+            longitude = 80.52f,
+            detectedDisease = defaultDisease,
+            confidence = 0f,
+            isSynced = false,
+            createdAt = System.currentTimeMillis()
+        )
+    )
+
+    CaseResponse(
+        crop = crop.ifBlank { "Unknown" },
         disease = defaultDisease,
-        confidence = 0.92f,
+        confidence = 0f,
         status = "Pending Expert",
         response = str["fallback_advisory"] ?: "",
         language = language
@@ -264,14 +322,51 @@ suspend fun processAndSaveCase(
 fun HistoryTabContent(selectedLanguage: String) {
     val context = LocalContext.current
     val str = AppStrings.get(selectedLanguage)
-    val db = remember { AppDatabase.getDatabase(context.applicationContext) }
-    val casesList by db.caseDao().getAllCasesFlow().collectAsState(initial = emptyList())
+
+    var casesList by remember {
+        mutableStateOf<List<CaseEntity>>(emptyList())
+    }
+
+    var isLoading by remember {
+        mutableStateOf(true)
+    }
+
+    LaunchedEffect(Unit) {
+        try {
+            val db = withContext(Dispatchers.IO) {
+                AppDatabase.getDatabase(context.applicationContext)
+            }
+
+            db.caseDao()
+                .getAllCasesFlow()
+                .collect { cases ->
+                    casesList = cases
+                    isLoading = false
+
+                    android.util.Log.d(
+                        "HistoryTab",
+                        "History updated: ${cases.size} records"
+                    )
+                }
+
+        } catch (e: Exception) {
+            android.util.Log.e(
+                "HistoryTab",
+                "Failed to observe history",
+                e
+            )
+
+            casesList = emptyList()
+            isLoading = false
+        }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
+
         Text(
             text = str["hist_title"] ?: "Diagnosis History",
             fontSize = 20.sp,
@@ -281,31 +376,59 @@ fun HistoryTabContent(selectedLanguage: String) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        if (casesList.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = 60.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🌿", fontSize = 42.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = str["hist_empty"] ?: "No scan records found yet.",
-                        color = Color.Gray,
-                        fontSize = 15.sp
-                    )
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 60.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
                 }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 80.dp)
-            ) {
-                items(casesList) { item ->
-                    HistoryCardView(item = item, str = str)
+
+            casesList.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 60.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "🌿",
+                            fontSize = 42.sp
+                        )
+
+                        Spacer(
+                            modifier = Modifier.height(8.dp)
+                        )
+
+                        Text(
+                            text = str["hist_empty"]
+                                ?: "No scan records found yet.",
+                            color = Color.Gray,
+                            fontSize = 15.sp
+                        )
+                    }
+                }
+            }
+
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 80.dp)
+                ) {
+                    items(casesList) { item ->
+                        HistoryCardView(
+                            item = item,
+                            str = str
+                        )
+                    }
                 }
             }
         }

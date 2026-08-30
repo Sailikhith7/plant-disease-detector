@@ -18,6 +18,7 @@ import com.kisanmitra.sync.SyncWorker
 import com.kisanmitra.ui.screens.CaptureScreen
 import com.kisanmitra.ui.screens.DiagnosisResultScreen
 import com.kisanmitra.ui.screens.HomeScreen
+import com.kisanmitra.ui.screens.HistoryScreen
 import java.util.concurrent.TimeUnit
 
 // Data model to store the prediction payload across screens
@@ -71,49 +72,62 @@ fun AppNavigation() {
     val backendBaseUrl = "http://192.168.137.1:8000"
 
     when (currentScreen) {
-        "home" -> {
-            HomeScreen(
-                // If your HomeScreen has a scan button callback, pass: onScanClick = { currentScreen = "capture" }
-            )
+    "home" -> {
+        HomeScreen(
+            // Your HomeScreen callbacks
+        )
+    }
+
+    "capture" -> {
+        BackHandler {
+            currentScreen = "home"
         }
 
-        "capture" -> {
-            BackHandler {
+        CaptureScreen(
+            backendUrl = backendBaseUrl,
+            selectedLanguage = "en",
+            onDiagnosisSuccess = { crop, disease, confidence, status, response ->
+                predictionResult =
+                    PredictionData(crop, disease, confidence, status, response)
+
+                currentScreen = "result"
+            },
+            onBackClick = {
                 currentScreen = "home"
             }
-            CaptureScreen(
-                backendUrl = backendBaseUrl,
-                selectedLanguage = "en",
-                onDiagnosisSuccess = { crop, disease, confidence, status, response ->
-                    predictionResult = PredictionData(crop, disease, confidence, status, response)
-                    currentScreen = "result"
-                },
+        )
+    }
+
+    "result" -> {
+        BackHandler {
+            currentScreen = "capture"
+        }
+
+        predictionResult?.let { result ->
+            DiagnosisResultScreen(
+                crop = result.crop,
+                disease = result.disease,
+                confidence = result.confidence,
+                status = result.status,
+                advisoryText = result.response,
                 onBackClick = {
+                    currentScreen = "capture"
+                },
+                onViewCaseStatusClick = {
                     currentScreen = "home"
                 }
             )
         }
-
-        "result" -> {
-            BackHandler {
-                currentScreen = "capture"
-            }
-            predictionResult?.let { result ->
-                DiagnosisResultScreen(
-                    crop = result.crop,
-                    disease = result.disease,
-                    confidence = result.confidence,
-                    status = result.status,
-                    advisoryText = result.response,
-                    onBackClick = {
-                        currentScreen = "capture"
-                    },
-                    onViewCaseStatusClick = {
-                        // Navigate back or to CaseStatusScreen when ready
-                        currentScreen = "home"
-                    }
-                )
-            }
-        }
     }
+
+    "history" -> {
+        BackHandler {
+            currentScreen = "home"
+        }
+
+        HistoryScreen(
+            selectedLanguage = "en"
+        )
+    }
+}
 }
