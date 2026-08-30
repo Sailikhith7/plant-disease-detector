@@ -20,13 +20,14 @@ import com.kisanmitra.ui.screens.DiagnosisResultScreen
 import com.kisanmitra.ui.screens.HomeScreen
 import java.util.concurrent.TimeUnit
 
-// Data model to store the prediction payload across screens
+// Data model to store the prediction payload across screens (including dynamic audio URL)
 data class PredictionData(
     val crop: String,
     val disease: String,
     val confidence: Float,
     val status: String,
-    val response: String
+    val response: String,
+    val audioUrl: String? = null
 )
 
 class MainActivity : ComponentActivity() {
@@ -67,14 +68,12 @@ fun AppNavigation() {
     var currentScreen by remember { mutableStateOf("home") }
     var predictionResult by remember { mutableStateOf<PredictionData?>(null) }
 
-    // Replace with your local machine's IPv4 address (e.g., "http://192.168.1.10:8000")
+    // Backend IPv4 address for local machine / real device connectivity
     val backendBaseUrl = "http://192.168.137.1:8000"
 
     when (currentScreen) {
         "home" -> {
-            HomeScreen(
-                // If your HomeScreen has a scan button callback, pass: onScanClick = { currentScreen = "capture" }
-            )
+            HomeScreen()
         }
 
         "capture" -> {
@@ -83,9 +82,16 @@ fun AppNavigation() {
             }
             CaptureScreen(
                 backendUrl = backendBaseUrl,
-                selectedLanguage = "en",
-                onDiagnosisSuccess = { crop, disease, confidence, status, response ->
-                    predictionResult = PredictionData(crop, disease, confidence, status, response)
+                selectedLanguage = "mr", // Marathi by default
+                onDiagnosisSuccess = { crop, disease, confidence, status, response, audioUrl ->
+                    predictionResult = PredictionData(
+                        crop = crop,
+                        disease = disease,
+                        confidence = confidence,
+                        status = status,
+                        response = response,
+                        audioUrl = audioUrl
+                    )
                     currentScreen = "result"
                 },
                 onBackClick = {
@@ -105,11 +111,11 @@ fun AppNavigation() {
                     confidence = result.confidence,
                     status = result.status,
                     advisoryText = result.response,
+                    audioUrl = result.audioUrl,
                     onBackClick = {
                         currentScreen = "capture"
                     },
                     onViewCaseStatusClick = {
-                        // Navigate back or to CaseStatusScreen when ready
                         currentScreen = "home"
                     }
                 )

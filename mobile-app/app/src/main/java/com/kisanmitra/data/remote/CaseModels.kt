@@ -19,5 +19,8 @@ data class CaseResponse(
     val response: String = "",
 
     @SerializedName("language")
-    val language: String = "en"
+    val language: String = "en",
+
+    @SerializedName("audio_url")
+    val audioUrl: String? = null
 )

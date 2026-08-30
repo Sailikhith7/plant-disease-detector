@@ -51,8 +51,8 @@ val MAHARASHTRA_DISTRICTS = listOf(
 @Composable
 fun CaptureScreen(
     backendUrl: String = "http://192.168.137.1:8000",
-    selectedLanguage: String = "en",
-    onDiagnosisSuccess: (crop: String, disease: String, confidence: Float, status: String, response: String) -> Unit,
+    selectedLanguage: String = "mr",
+    onDiagnosisSuccess: (crop: String, disease: String, confidence: Float, status: String, response: String, audioUrl: String?) -> Unit,
     onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -103,8 +103,9 @@ fun CaptureScreen(
                     .addFormDataPart("farmer_id", "FARMER_${UUID.randomUUID().toString().take(6).uppercase()}")
                     .build()
 
+                val cleanBaseUrl = backendUrl.trimEnd('/')
                 val request = Request.Builder()
-                    .url("$backendUrl/api/predict")
+                    .url("$cleanBaseUrl/api/predict")
                     .post(requestBody)
                     .build()
 
@@ -120,8 +121,9 @@ fun CaptureScreen(
                         val confidence = json.optDouble("confidence", 0.0).toFloat()
                         val status = json.optString("status", "Pending Expert")
                         val advisory = json.optString("response", "No advisory generated.")
+                        val audioUrl = if (json.isNull("audio_url")) null else json.optString("audio_url", null)
 
-                        onDiagnosisSuccess(crop, disease, confidence, status, advisory)
+                        onDiagnosisSuccess(crop, disease, confidence, status, advisory, audioUrl)
                     } else {
                         Toast.makeText(
                             context,

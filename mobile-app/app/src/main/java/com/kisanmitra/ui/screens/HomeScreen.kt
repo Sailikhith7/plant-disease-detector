@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -24,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -87,6 +90,8 @@ object AppStrings {
             "district_lbl" to "जिला",
             "disease_lbl" to "पहचाना गया रोग",
             "advisory_title" to "एआई उपचार सलाह (RAG Guidance)",
+            "play_audio" to "🔊 ऑडियो सलाह सुनें (Play Audio)",
+            "playing_audio" to "ऑडियो चल रहा है...",
             "btn_restart" to "दूसरे नमूने की जांच करें",
             "disease_name" to "गुलाबी सुंडी (Pink Bollworm)",
             "fallback_advisory" to "फसल अवशेष नष्ट करें, फेरोमोन ट्रैप लगाएं और क्लोरांट्रानिलिप्रोल 18.5% SC @ 60 मिली/एकड़ का छिड़काव करें।",
@@ -121,6 +126,8 @@ object AppStrings {
             "district_lbl" to "जिल्हा",
             "disease_lbl" to "आढळलेला रोग",
             "advisory_title" to "एआय उपचार सल्ला (RAG Guidance)",
+            "play_audio" to "🔊 मराठी सल्ला ऐका (Play Audio)",
+            "playing_audio" to "सल्ला वाजत आहे...",
             "btn_restart" to "दुसऱ्या नमुन्याची तपासणी करा",
             "disease_name" to "गुलाबी बोंडअळी (Pink Bollworm)",
             "fallback_advisory" to "पिकाचे अवशेष नष्ट करा, कामगंध सापळे लावा आणि योग्य कीटकनाशकाची फवारणी करा.",
@@ -155,6 +162,8 @@ object AppStrings {
             "district_lbl" to "District",
             "disease_lbl" to "Detected Disease",
             "advisory_title" to "AI Treatment Advisory (RAG Guidance)",
+            "play_audio" to "🔊 Listen Audio Advisory (Play)",
+            "playing_audio" to "Playing Audio Advisory...",
             "btn_restart" to "Diagnose Another Sample",
             "disease_name" to "Pink Bollworm",
             "fallback_advisory" to "Destroy crop residues, deploy pheromone traps, and apply recommended bio-pesticides or chemical sprays as per IPM guidelines.",
@@ -256,7 +265,8 @@ suspend fun processAndSaveCase(
         confidence = 0.92f,
         status = "Pending Expert",
         response = str["fallback_advisory"] ?: "",
-        language = language
+        language = language,
+        audioUrl = null
     )
 }
 
@@ -580,7 +590,7 @@ fun HomeScreen() {
     var currentStep by remember { mutableIntStateOf(1) }
 
     // User Selection States
-    var selectedLanguage by remember { mutableStateOf("en") }
+    var selectedLanguage by remember { mutableStateOf("mr") }
     var farmerName by remember { mutableStateOf("") }
     var selectedDistrict by remember { mutableStateOf("Yavatmal") }
     var isDistrictDropdownExpanded by remember { mutableStateOf(false) }
@@ -593,6 +603,16 @@ fun HomeScreen() {
     var capturedPhotoFile by remember { mutableStateOf<File?>(null) }
     var resultData by remember { mutableStateOf<CaseResponse?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+    var isAudioPlaying by remember { mutableStateOf(false) }
+    var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+
+    // Stop audio on dispose
+    DisposableEffect(Unit) {
+        onDispose {
+            mediaPlayer?.release()
+            mediaPlayer = null
+        }
+    }
 
     val imageCapture = remember { ImageCapture.Builder().build() }
 
@@ -1151,12 +1171,95 @@ fun HomeScreen() {
                                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
                                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                                         ) {
-                                            Text(
-                                                text = res.response,
-                                                modifier = Modifier.padding(14.dp),
-                                                fontSize = 14.sp,
-                                                lineHeight = 20.sp
-                                            )
+                                            Column(modifier = Modifier.padding(14.dp)) {
+                                                Text(
+                                                    text = res.response,
+                                                    fontSize = 14.sp,
+                                                    lineHeight = 20.sp
+                                                )
+
+                                                // Voice Advisory Player Button
+                                                if (!res.audioUrl.isNullOrEmpty()) {
+                                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                                    Button(
+                                                        onClick = {
+                                                            val audioPath = res.audioUrl ?: ""
+                                                            val fullUrl = if (audioPath.startsWith("http")) {
+                                                                audioPath
+                                                            } else {
+                                                                "http://192.168.137.1:8000" + (if (audioPath.startsWith("/")) audioPath else "/$audioPath")
+                                                            }
+
+                                                            try {
+                                                                if (mediaPlayer == null) {
+                                                                    mediaPlayer = MediaPlayer().apply {
+                                                                        setAudioAttributes(
+                                                                            AudioAttributes.Builder()
+                                                                                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                                                                                .setUsage(AudioAttributes.USAGE_MEDIA)
+                                                                                .build()
+                                                                        )
+                                                                        setDataSource(fullUrl)
+                                                                        prepareAsync()
+                                                                        setOnPreparedListener {
+                                                                            start()
+                                                                            isAudioPlaying = true
+                                                                            Toast.makeText(context, "Playing Audio...", Toast.LENGTH_SHORT).show()
+                                                                        }
+                                                                        setOnCompletionListener {
+                                                                            isAudioPlaying = false
+                                                                            release()
+                                                                            mediaPlayer = null
+                                                                        }
+                                                                        setOnErrorListener { _, _, _ ->
+                                                                            isAudioPlaying = false
+                                                                            release()
+                                                                            mediaPlayer = null
+                                                                            Toast.makeText(context, "Audio playback error", Toast.LENGTH_SHORT).show()
+                                                                            true
+                                                                        }
+                                                                    }
+                                                                } else {
+                                                                    mediaPlayer?.let { player ->
+                                                                        if (player.isPlaying) {
+                                                                            player.pause()
+                                                                            isAudioPlaying = false
+                                                                            Toast.makeText(context, "Audio Paused", Toast.LENGTH_SHORT).show()
+                                                                        } else {
+                                                                            player.start()
+                                                                            isAudioPlaying = true
+                                                                            Toast.makeText(context, "Resumed Audio", Toast.LENGTH_SHORT).show()
+                                                                        }
+                                                                    }
+                                                                }
+                                                            } catch (e: Exception) {
+                                                                isAudioPlaying = false
+                                                                mediaPlayer?.release()
+                                                                mediaPlayer = null
+                                                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        },
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        shape = RoundedCornerShape(8.dp),
+                                                        colors = ButtonDefaults.buttonColors(
+                                                            containerColor = if (isAudioPlaying) Color(0xFFC62828) else Color(0xFF2E7D32)
+                                                        )
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.PlayArrow,
+                                                            contentDescription = if (isAudioPlaying) "Pause Audio" else "Play Audio",
+                                                            tint = Color.White
+                                                        )
+                                                        Spacer(modifier = Modifier.width(8.dp))
+                                                        Text(
+                                                            text = if (isAudioPlaying) "⏸️ Pause Audio Advisory" else "🔊 Listen Audio Advisory (Play)",
+                                                            color = Color.White,
+                                                            fontWeight = FontWeight.SemiBold
+                                                        )
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
 
