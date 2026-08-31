@@ -51,15 +51,20 @@ import com.kisanmitra.ui.components.captureImageToFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 private val HOME_DISTRICTS = listOf(
     "Ahilyanagar (Ahmednagar)", "Akola", "Amravati", "Beed", "Bhandara",
@@ -655,6 +660,7 @@ fun HomeScreen() {
     var resultData by remember { mutableStateOf<CaseResponse?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var isAudioPlaying by remember { mutableStateOf(false) }
+    var isSendingToExpert by remember { mutableStateOf(false) }
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
 
     // Stop audio on dispose
@@ -841,6 +847,104 @@ fun HomeScreen() {
             }
         )
     }
+
+    fun sendToExpert() {
+
+    val caseId = resultData?.caseId
+
+    if (caseId.isNullOrBlank()) {
+        Toast.makeText(
+            context,
+            "Case ID not available. Please scan again.",
+            Toast.LENGTH_LONG
+        ).show()
+
+        return
+    }
+
+    if (isSendingToExpert) {
+        return
+    }
+
+    isSendingToExpert = true
+
+    coroutineScope.launch {
+
+        try {
+
+            val result = withContext(Dispatchers.IO) {
+
+                val client = OkHttpClient.Builder()
+                    .connectTimeout(30, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
+                    .writeTimeout(30, TimeUnit.SECONDS)
+                    .build()
+
+                val json = JSONObject().apply {
+
+                    put(
+                        "reason",
+                        "Farmer is not satisfied with the model diagnosis."
+                    )
+
+                    put(
+                        "description",
+                        "Farmer requested expert review."
+                    )
+                }
+
+                val requestBody =
+                    json.toString().toRequestBody(
+                        "application/json".toMediaType()
+                    )
+
+                val request = Request.Builder()
+                    .url(
+                        "http://192.168.137.1:8000/api/cases/$caseId/expert-request"
+                    )
+                    .post(requestBody)
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+
+                    Pair(
+                        response.isSuccessful,
+                        response.code
+                    )
+                }
+            }
+
+            isSendingToExpert = false
+
+            if (result.first) {
+
+                Toast.makeText(
+                    context,
+                    "Your problem has been sent to an expert.",
+                    Toast.LENGTH_LONG
+                ).show()
+
+            } else {
+
+                Toast.makeText(
+                    context,
+                    "Could not send request to expert. HTTP ${result.second}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+
+        } catch (e: Exception) {
+
+            isSendingToExpert = false
+
+            Toast.makeText(
+                context,
+                "Expert request failed: ${e.localizedMessage}",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+}
 
     Scaffold(
         topBar = {
@@ -1313,6 +1417,88 @@ fun HomeScreen() {
                                             }
                                         }
                                     }
+
+// ==========================================================
+// EXPERT HELP
+// Available regardless of model confidence
+// ==========================================================
+
+Spacer(
+    modifier = Modifier.height(16.dp)
+)
+
+Card(
+    modifier = Modifier.fillMaxWidth(),
+    shape = RoundedCornerShape(12.dp),
+    colors = CardDefaults.cardColors(
+        containerColor = Color(0xFFF3EDF7)
+    ),
+    elevation = CardDefaults.cardElevation(
+        defaultElevation = 2.dp
+    )
+) {
+
+    Column(
+        modifier = Modifier.padding(16.dp)
+    ) {
+
+        Text(
+            text = "Are you satisfied with this diagnosis?",
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF212121)
+        )
+
+        Spacer(
+            modifier = Modifier.height(6.dp)
+        )
+
+        Text(
+            text = "If you are not satisfied with the AI diagnosis, you can send this case to an agricultural expert for review.",
+            fontSize = 14.sp,
+            color = Color(0xFF616161)
+        )
+
+        Spacer(
+            modifier = Modifier.height(12.dp)
+        )
+
+        Button(
+            onClick = {
+                // Expert request will be added here
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(55.dp),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF6A4C93)
+            )
+        ) {
+
+            Text(
+                text = "I'm Not Satisfied - Ask an Expert",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        }
+
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
+
+        Text(
+            text = "This option is available regardless of diagnosis confidence.",
+            fontSize = 11.sp,
+            color = Color.Gray
+        )
+    }
+}
+
+Spacer(
+    modifier = Modifier.height(8.dp)
+)
 
                                     Spacer(modifier = Modifier.height(24.dp))
 

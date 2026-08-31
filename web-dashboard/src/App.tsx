@@ -117,9 +117,17 @@ function App() {
               "Medium",
 
             // Status
+            // Status
             status:
-              item.status ||
-              "Pending Expert",
+              item.status === "PENDING_EXPERT"
+                ? "Pending Expert"
+                : item.status === "RESOLVED"
+                  ? "Resolved"
+                  : item.status === "OPEN"
+                    ? "OPEN"
+                    : item.status === "Pending"
+                      ? "Pending"
+                      : item.status || "Pending Expert",
 
             // GPS coordinates
             gps_lat:

@@ -2,11 +2,12 @@ package com.kisanmitra
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -14,29 +15,47 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.kisanmitra.sync.SyncWorker
+import com.kisanmitra.ui.screens.CaptureScreen
+import com.kisanmitra.ui.screens.DiagnosisResultScreen
 import com.kisanmitra.ui.screens.HomeScreen
 import java.util.concurrent.TimeUnit
 
-// Data model required by prediction and result screens
 data class PredictionData(
+
+    val caseId: String?,
+
     val crop: String,
+
     val disease: String,
+
     val confidence: Float,
+
     val status: String,
+
     val response: String,
+
     val audioUrl: String? = null
 )
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
+
+    override fun onCreate(
+        savedInstanceState: Bundle?
+    ) {
+
         super.onCreate(savedInstanceState)
 
-        // Schedule periodic sync when connected to network
         scheduleOfflineSync()
 
         setContent {
+
             MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+
+                Surface(
+                    modifier =
+                        Modifier.fillMaxSize()
+                ) {
+
                     AppNavigation()
                 }
             }
@@ -44,23 +63,146 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun scheduleOfflineSync() {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
 
-        val syncRequest = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
-            .setConstraints(constraints)
-            .build()
+        val constraints =
+            Constraints.Builder()
+                .setRequiredNetworkType(
+                    NetworkType.CONNECTED
+                )
+                .build()
 
-        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
-            "KisanMitraSync",
-            ExistingPeriodicWorkPolicy.KEEP,
-            syncRequest
-        )
+        val syncRequest =
+            PeriodicWorkRequestBuilder<SyncWorker>(
+                15,
+                TimeUnit.MINUTES
+            )
+                .setConstraints(constraints)
+                .build()
+
+        WorkManager
+            .getInstance(applicationContext)
+            .enqueueUniquePeriodicWork(
+                "KisanMitraSync",
+                ExistingPeriodicWorkPolicy.KEEP,
+                syncRequest
+            )
     }
 }
 
 @Composable
 fun AppNavigation() {
-    HomeScreen()
+
+    var currentScreen by remember {
+        mutableStateOf("home")
+    }
+
+    var predictionResult by remember {
+        mutableStateOf<PredictionData?>(null)
+    }
+
+    val backendBaseUrl =
+        "http://192.168.137.1:8000"
+
+    when (currentScreen) {
+
+        "home" -> {
+
+            HomeScreen()
+        }
+
+        "capture" -> {
+
+            BackHandler {
+                currentScreen = "home"
+            }
+
+            CaptureScreen(
+
+                backendUrl =
+                    backendBaseUrl,
+
+                selectedLanguage =
+                    "mr",
+
+                onDiagnosisSuccess = {
+                    caseId,
+                    crop,
+                    disease,
+                    confidence,
+                    status,
+                    response,
+                    audioUrl ->
+
+                    predictionResult =
+                        PredictionData(
+
+                            caseId = caseId,
+
+                            crop = crop,
+
+                            disease = disease,
+
+                            confidence = confidence,
+
+                            status = status,
+
+                            response = response,
+
+                            audioUrl = audioUrl
+                        )
+
+                    currentScreen = "result"
+                },
+
+                onBackClick = {
+                    currentScreen = "home"
+                }
+            )
+        }
+
+        "result" -> {
+
+            BackHandler {
+                currentScreen = "capture"
+            }
+
+            predictionResult?.let { result ->
+
+                DiagnosisResultScreen(
+
+                    crop =
+                        result.crop,
+
+                    disease =
+                        result.disease,
+
+                    confidence =
+                        result.confidence,
+
+                    status =
+                        result.status,
+
+                    advisoryText =
+                        result.response,
+
+                    audioUrl =
+                        result.audioUrl,
+
+                    caseId =
+                        result.caseId,
+
+                    backendUrl =
+                        backendBaseUrl,
+
+                    onBackClick = {
+                        currentScreen = "capture"
+                    },
+
+                    onViewCaseStatusClick = {
+                        currentScreen = "home"
+                    }
+                )
+            }
+        }
+    }
 }

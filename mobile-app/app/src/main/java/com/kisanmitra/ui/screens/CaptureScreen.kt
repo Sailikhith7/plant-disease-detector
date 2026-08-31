@@ -38,13 +38,42 @@ import java.util.*
 import java.util.concurrent.TimeUnit
 
 val MAHARASHTRA_DISTRICTS = listOf(
-    "Ahilyanagar (Ahmednagar)", "Akola", "Amravati", "Beed", "Bhandara",
-    "Buldhana", "Chandrapur", "Chhatrapati Sambhajinagar (Aurangabad)",
-    "Dharashiv (Osmanabad)", "Dhule", "Gadchiroli", "Gondia", "Hingoli",
-    "Jalgaon", "Jalna", "Kolhapur", "Latur", "Mumbai City", "Mumbai Suburban",
-    "Nagpur", "Nanded", "Nandurbar", "Nashik", "Palghar", "Parbhani",
-    "Pune", "Raigad", "Ratnagiri", "Sangli", "Satara", "Sindhudurg",
-    "Solapur", "Thane", "Wardha", "Washim", "Yavatmal"
+    "Ahilyanagar (Ahmednagar)",
+    "Akola",
+    "Amravati",
+    "Beed",
+    "Bhandara",
+    "Buldhana",
+    "Chandrapur",
+    "Chhatrapati Sambhajinagar (Aurangabad)",
+    "Dharashiv (Osmanabad)",
+    "Dhule",
+    "Gadchiroli",
+    "Gondia",
+    "Hingoli",
+    "Jalgaon",
+    "Jalna",
+    "Kolhapur",
+    "Latur",
+    "Mumbai City",
+    "Mumbai Suburban",
+    "Nagpur",
+    "Nanded",
+    "Nandurbar",
+    "Nashik",
+    "Palghar",
+    "Parbhani",
+    "Pune",
+    "Raigad",
+    "Ratnagiri",
+    "Sangli",
+    "Satara",
+    "Sindhudurg",
+    "Solapur",
+    "Thane",
+    "Wardha",
+    "Washim",
+    "Yavatmal"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,92 +81,245 @@ val MAHARASHTRA_DISTRICTS = listOf(
 fun CaptureScreen(
     backendUrl: String = "http://192.168.137.1:8000",
     selectedLanguage: String = "mr",
-    onDiagnosisSuccess: (crop: String, disease: String, confidence: Float, status: String, response: String, audioUrl: String?) -> Unit,
+
+    onDiagnosisSuccess: (
+        caseId: String?,
+        crop: String,
+        disease: String,
+        confidence: Float,
+        status: String,
+        response: String,
+        audioUrl: String?
+    ) -> Unit,
+
     onBackClick: () -> Unit
 ) {
+
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
-    var isUploading by remember { mutableStateOf(false) }
-    var tempImageFile by remember { mutableStateOf<File?>(null) }
+    var isUploading by remember {
+        mutableStateOf(false)
+    }
 
-    // User Inputs (Default blank / first district)
-    var enteredFarmerName by remember { mutableStateOf("") }
-    var enteredCrop by remember { mutableStateOf("Cotton") }
-    var selectedDistrict by remember { mutableStateOf("Yavatmal") }
-    var isDistrictDropdownExpanded by remember { mutableStateOf(false) }
+    var tempImageFile by remember {
+        mutableStateOf<File?>(null)
+    }
+
+    var farmerName by remember {
+        mutableStateOf("")
+    }
+
+    var crop by remember {
+        mutableStateOf("Cotton")
+    }
+
+    var selectedDistrict by remember {
+        mutableStateOf("Yavatmal")
+    }
+
+    var districtExpanded by remember {
+        mutableStateOf(false)
+    }
 
     fun createTempImageFile(): File {
-        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val storageDir = context.cacheDir
-        return File.createTempFile("LEAF_${timeStamp}_", ".jpg", storageDir).apply {
-            tempImageFile = this
+
+        val timestamp =
+            SimpleDateFormat(
+                "yyyyMMdd_HHmmss",
+                Locale.getDefault()
+            ).format(Date())
+
+        return File.createTempFile(
+            "LEAF_${timestamp}_",
+            ".jpg",
+            context.cacheDir
+        ).also {
+            tempImageFile = it
         }
     }
 
     fun uploadAndPredict(imageFile: File) {
-        val farmerToSubmit = if (enteredFarmerName.isNotBlank()) enteredFarmerName.trim() else "App Farmer"
-        val districtToSubmit = selectedDistrict
-        val cropToSubmit = if (enteredCrop.isNotBlank()) enteredCrop.trim() else "Cotton"
+
+        val farmer =
+            if (farmerName.isNotBlank())
+                farmerName.trim()
+            else
+                "App Farmer"
+
+        val cropValue =
+            if (crop.isNotBlank())
+                crop.trim()
+            else
+                "Cotton"
+
+        val districtValue =
+            selectedDistrict
 
         isUploading = true
-        coroutineScope.launch(Dispatchers.IO) {
+
+        scope.launch(Dispatchers.IO) {
+
             try {
-                val client = OkHttpClient.Builder()
-                    .connectTimeout(30, TimeUnit.SECONDS)
-                    .readTimeout(60, TimeUnit.SECONDS)
-                    .build()
 
-                val requestBody = MultipartBody.Builder()
-                    .setType(MultipartBody.FORM)
-                    .addFormDataPart(
-                        "image",
-                        imageFile.name,
-                        imageFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
-                    )
-                    .addFormDataPart("language", selectedLanguage)
-                    .addFormDataPart("farmer_name", farmerToSubmit)
-                    .addFormDataPart("crop", cropToSubmit)
-                    .addFormDataPart("district", districtToSubmit)
-                    .addFormDataPart("farmer_id", "FARMER_${UUID.randomUUID().toString().take(6).uppercase()}")
-                    .build()
+                val client =
+                    OkHttpClient.Builder()
+                        .connectTimeout(
+                            30,
+                            TimeUnit.SECONDS
+                        )
+                        .readTimeout(
+                            120,
+                            TimeUnit.SECONDS
+                        )
+                        .writeTimeout(
+                            120,
+                            TimeUnit.SECONDS
+                        )
+                        .build()
 
-                val cleanBaseUrl = backendUrl.trimEnd('/')
-                val request = Request.Builder()
-                    .url("$cleanBaseUrl/api/predict")
-                    .post(requestBody)
-                    .build()
+                val requestBody =
+                    MultipartBody.Builder()
+                        .setType(MultipartBody.FORM)
 
-                val response = client.newCall(request).execute()
-                val responseData = response.body?.string()
+                        .addFormDataPart(
+                            "image",
+                            imageFile.name,
+                            imageFile.asRequestBody(
+                                "image/jpeg"
+                                    .toMediaTypeOrNull()
+                            )
+                        )
+
+                        .addFormDataPart(
+                            "language",
+                            selectedLanguage
+                        )
+
+                        .addFormDataPart(
+                            "farmer_name",
+                            farmer
+                        )
+
+                        .addFormDataPart(
+                            "crop",
+                            cropValue
+                        )
+
+                        .addFormDataPart(
+                            "district",
+                            districtValue
+                        )
+
+                        .addFormDataPart(
+                            "farmer_id",
+                            "MH_OFFLINE_001"
+                        )
+
+                        .build()
+
+                val request =
+                    Request.Builder()
+                        .url(
+                            "${backendUrl.trimEnd('/')}/api/predict"
+                        )
+                        .post(requestBody)
+                        .build()
+
+                val response =
+                    client
+                        .newCall(request)
+                        .execute()
+
+                val responseText =
+                    response.body?.string()
 
                 withContext(Dispatchers.Main) {
-                    isUploading = false
-                    if (response.isSuccessful && responseData != null) {
-                        val json = JSONObject(responseData)
-                        val crop = json.optString("crop", cropToSubmit)
-                        val disease = json.optString("disease", "Unknown")
-                        val confidence = json.optDouble("confidence", 0.0).toFloat()
-                        val status = json.optString("status", "Pending Expert")
-                        val advisory = json.optString("response", "No advisory generated.")
-                        val audioUrl = if (json.isNull("audio_url")) null else json.optString("audio_url", null)
 
-                        onDiagnosisSuccess(crop, disease, confidence, status, advisory, audioUrl)
+                    isUploading = false
+
+                    if (
+                        response.isSuccessful &&
+                        responseText != null
+                    ) {
+
+                        val json =
+                            JSONObject(responseText)
+
+                        val caseId =
+                            json
+                                .optString("case_id")
+                                .takeIf {
+                                    it.isNotBlank()
+                                }
+
+                        val returnedCrop =
+                            json.optString(
+                                "crop",
+                                cropValue
+                            )
+
+                        val disease =
+                            json.optString(
+                                "disease",
+                                "Unknown"
+                            )
+
+                        val confidence =
+                            json.optDouble(
+                                "confidence",
+                                0.0
+                            ).toFloat()
+
+                        val status =
+                            json.optString(
+                                "status",
+                                "Pending Expert"
+                            )
+
+                        val advisory =
+                            json.optString(
+                                "response",
+                                "No advisory generated."
+                            )
+
+                        val audioUrl =
+                            json
+                                .optString("audio_url")
+                                .takeIf {
+                                    it.isNotBlank()
+                                }
+
+                        onDiagnosisSuccess(
+                            caseId,
+                            returnedCrop,
+                            disease,
+                            confidence,
+                            status,
+                            advisory,
+                            audioUrl
+                        )
+
                     } else {
+
                         Toast.makeText(
                             context,
-                            "Analysis failed: ${response.message}",
+                            "Analysis failed: HTTP ${response.code}",
                             Toast.LENGTH_LONG
                         ).show()
                     }
                 }
+
             } catch (e: Exception) {
+
                 withContext(Dispatchers.Main) {
+
                     isUploading = false
+
                     Toast.makeText(
                         context,
-                        "Server Connection Error: ${e.localizedMessage}",
+                        "Server connection error: ${e.message}",
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -145,190 +327,403 @@ fun CaptureScreen(
         }
     }
 
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture()
-    ) { success ->
-        if (success && tempImageFile != null) {
-            uploadAndPredict(tempImageFile!!)
-        }
-    }
+    val cameraLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.TakePicture()
+        ) { success ->
 
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { selectedUri ->
-            val file = createTempImageFile()
-            context.contentResolver.openInputStream(selectedUri)?.use { input ->
-                FileOutputStream(file).use { output ->
-                    input.copyTo(output)
+            if (
+                success &&
+                tempImageFile != null
+            ) {
+
+                uploadAndPredict(
+                    tempImageFile!!
+                )
+            }
+        }
+
+    val galleryLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.GetContent()
+        ) { uri: Uri? ->
+
+            if (uri != null) {
+
+                try {
+
+                    val file =
+                        createTempImageFile()
+
+                    context.contentResolver
+                        .openInputStream(uri)
+                        ?.use { input ->
+
+                            FileOutputStream(file)
+                                .use { output ->
+
+                                    input.copyTo(output)
+                                }
+                        }
+
+                    uploadAndPredict(file)
+
+                } catch (e: Exception) {
+
+                    Toast.makeText(
+                        context,
+                        "Could not read selected image.",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
-            uploadAndPredict(file)
         }
-    }
 
     Scaffold(
+
         topBar = {
+
             TopAppBar(
-                title = { Text("Enter Details & Scan", fontWeight = FontWeight.Bold) },
+
+                title = {
+                    Text(
+                        "Enter Details & Scan",
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+                },
+
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+
+                    IconButton(
+                        onClick =
+                            onBackClick
+                    ) {
+
+                        Icon(
+                            imageVector =
+                                Icons.Default.ArrowBack,
+                            contentDescription =
+                                "Back"
+                        )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF1B5E20),
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
-                )
+
+                colors =
+                    TopAppBarDefaults
+                        .topAppBarColors(
+                            containerColor =
+                                Color(0xFF1B5E20),
+                            titleContentColor =
+                                Color.White,
+                            navigationIconContentColor =
+                                Color.White
+                        )
             )
         }
+
     ) { paddingValues ->
+
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(20.dp),
-            contentAlignment = Alignment.Center
+
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(20.dp)
         ) {
+
             if (isUploading) {
+
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+
+                    modifier =
+                        Modifier.fillMaxSize(),
+
+                    horizontalAlignment =
+                        Alignment.CenterHorizontally,
+
+                    verticalArrangement =
+                        Arrangement.Center
                 ) {
+
                     CircularProgressIndicator(
-                        color = Color(0xFF2E7D32),
-                        strokeWidth = 4.dp
+                        color =
+                            Color(0xFF2E7D32)
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Spacer(
+                        modifier =
+                            Modifier.height(16.dp)
+                    )
+
                     Text(
-                        text = "Analyzing & registering case...",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium
+                        "Analyzing & registering case...",
+                        fontWeight =
+                            FontWeight.Medium
                     )
                 }
+
             } else {
+
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(scrollState),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .verticalScroll(
+                                scrollState
+                            ),
+
+                    horizontalAlignment =
+                        Alignment.CenterHorizontally
                 ) {
-                    // Field Inputs Card
+
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F8E9)),
-                        shape = RoundedCornerShape(12.dp)
+
+                        modifier =
+                            Modifier.fillMaxWidth(),
+
+                        colors =
+                            CardDefaults
+                                .cardColors(
+                                    containerColor =
+                                        Color(0xFFF1F8E9)
+                                ),
+
+                        shape =
+                            RoundedCornerShape(12.dp)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+
+                        Column(
+                            modifier =
+                                Modifier.padding(16.dp)
+                        ) {
+
                             Text(
-                                text = "Farmer & Field Details",
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1B5E20),
-                                fontSize = 16.sp
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
+                                text =
+                                    "Farmer & Field Details",
 
-                            // 1. Farmer Name Input
+                                fontWeight =
+                                    FontWeight.Bold,
+
+                                color =
+                                    Color(0xFF1B5E20),
+
+                                fontSize =
+                                    16.sp
+                            )
+
+                            Spacer(
+                                modifier =
+                                    Modifier.height(12.dp)
+                            )
+
                             OutlinedTextField(
-                                value = enteredFarmerName,
-                                onValueChange = { enteredFarmerName = it },
-                                label = { Text("Farmer Full Name") },
-                                placeholder = { Text("e.g. Kasim Sheikh") },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp),
-                                singleLine = true
+
+                                value =
+                                    farmerName,
+
+                                onValueChange = {
+                                    farmerName = it
+                                },
+
+                                label = {
+                                    Text(
+                                        "Farmer Full Name"
+                                    )
+                                },
+
+                                modifier =
+                                    Modifier.fillMaxWidth(),
+
+                                singleLine =
+                                    true
                             )
 
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(
+                                modifier =
+                                    Modifier.height(10.dp)
+                            )
 
-                            // 2. Crop Selection
                             OutlinedTextField(
-                                value = enteredCrop,
-                                onValueChange = { enteredCrop = it },
-                                label = { Text("Crop Type") },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp),
-                                singleLine = true
+
+                                value =
+                                    crop,
+
+                                onValueChange = {
+                                    crop = it
+                                },
+
+                                label = {
+                                    Text(
+                                        "Crop Type"
+                                    )
+                                },
+
+                                modifier =
+                                    Modifier.fillMaxWidth(),
+
+                                singleLine =
+                                    true
                             )
 
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(
+                                modifier =
+                                    Modifier.height(10.dp)
+                            )
 
-                            // 3. 36 Maharashtra Districts Dropdown
-                            ExposedDropdownMenuBox(
-                                expanded = isDistrictDropdownExpanded,
-                                onExpandedChange = { isDistrictDropdownExpanded = !isDistrictDropdownExpanded },
-                                modifier = Modifier.fillMaxWidth()
+                            Box(
+                                modifier =
+                                    Modifier.fillMaxWidth()
                             ) {
-                                OutlinedTextField(
-                                    value = selectedDistrict,
-                                    onValueChange = {},
-                                    readOnly = true,
-                                    label = { Text("District (Maharashtra)") },
-                                    trailingIcon = {
-                                        ExposedDropdownMenuDefaults.TrailingIcon(
-                                            expanded = isDistrictDropdownExpanded
-                                        )
-                                    },
-                                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier
-                                        .menuAnchor()
-                                        .fillMaxWidth()
-                                )
 
-                                ExposedDropdownMenu(
-                                    expanded = isDistrictDropdownExpanded,
-                                    onDismissRequest = { isDistrictDropdownExpanded = false }
+                                OutlinedButton(
+
+                                    onClick = {
+                                        districtExpanded =
+                                            !districtExpanded
+                                    },
+
+                                    modifier =
+                                        Modifier.fillMaxWidth(),
+
+                                    shape =
+                                        RoundedCornerShape(8.dp)
                                 ) {
-                                    MAHARASHTRA_DISTRICTS.forEach { districtOption ->
-                                        DropdownMenuItem(
-                                            text = { Text(districtOption) },
-                                            onClick = {
-                                                selectedDistrict = districtOption
-                                                isDistrictDropdownExpanded = false
-                                            }
-                                        )
-                                    }
+
+                                    Text(
+                                        "District: $selectedDistrict"
+                                    )
+                                }
+
+                                DropdownMenu(
+
+                                    expanded =
+                                        districtExpanded,
+
+                                    onDismissRequest = {
+                                        districtExpanded =
+                                            false
+                                    },
+
+                                    modifier =
+                                        Modifier.fillMaxWidth()
+                                ) {
+
+                                    MAHARASHTRA_DISTRICTS
+                                        .forEach { district ->
+
+                                            DropdownMenuItem(
+
+                                                text = {
+                                                    Text(
+                                                        district
+                                                    )
+                                                },
+
+                                                onClick = {
+
+                                                    selectedDistrict =
+                                                        district
+
+                                                    districtExpanded =
+                                                        false
+                                                }
+                                            )
+                                        }
                                 }
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(
+                        modifier =
+                            Modifier.height(20.dp)
+                    )
 
                     Button(
+
                         onClick = {
-                            val file = createTempImageFile()
-                            val uri = FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.fileprovider",
-                                file
-                            )
-                            cameraLauncher.launch(uri)
+
+                            val file =
+                                createTempImageFile()
+
+                            val uri =
+                                FileProvider
+                                    .getUriForFile(
+                                        context,
+                                        "${context.packageName}.fileprovider",
+                                        file
+                                    )
+
+                            cameraLauncher
+                                .launch(uri)
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B5E20)),
-                        shape = RoundedCornerShape(10.dp)
+
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(54.dp),
+
+                        colors =
+                            ButtonDefaults
+                                .buttonColors(
+                                    containerColor =
+                                        Color(0xFF1B5E20)
+                                )
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Capture Photo with Camera", fontSize = 16.sp)
+
+                        Icon(
+                            imageVector =
+                                Icons.Default.Add,
+                            contentDescription =
+                                null
+                        )
+
+                        Spacer(
+                            modifier =
+                                Modifier.width(8.dp)
+                        )
+
+                        Text(
+                            "Capture Photo with Camera"
+                        )
                     }
 
+                    Spacer(
+                        modifier =
+                            Modifier.height(10.dp)
+                    )
+
                     OutlinedButton(
-                        onClick = { galleryLauncher.launch("image/*") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                        shape = RoundedCornerShape(10.dp)
+
+                        onClick = {
+                            galleryLauncher
+                                .launch("image/*")
+                        },
+
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(54.dp)
                     ) {
-                        Icon(Icons.Default.Check, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Choose from Gallery", fontSize = 16.sp)
+
+                        Icon(
+                            imageVector =
+                                Icons.Default.Check,
+                            contentDescription =
+                                null
+                        )
+
+                        Spacer(
+                            modifier =
+                                Modifier.width(8.dp)
+                        )
+
+                        Text(
+                            "Choose from Gallery"
+                        )
                     }
                 }
             }
