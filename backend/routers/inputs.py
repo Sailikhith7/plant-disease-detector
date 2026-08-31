@@ -1,5 +1,6 @@
 import os
 import uuid
+import asyncio
 import traceback
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from sqlalchemy.orm import Session
@@ -121,8 +122,70 @@ async def predict_disease(
 
     case_id = "CASE_" + uuid.uuid4().hex[:8].upper()
 
-    # 2. Upload image to Cloudinary (fallback to local disk)
-    cloud_url = upload_image_to_cloud(image_bytes)
+    # 2 & 5/6. Cloud image upload, and the RAG -> LLM -> TTS advisory chain,
+    # are fully independent of each other — the upload doesn't need the
+    # advisory text, and the advisory doesn't need the uploaded image URL.
+    # The original code ran all of this strictly one-after-another (upload,
+    # then LLM call, then TTS), which is why "Capture & Analyze" could take
+    # 10-25+ seconds: it's the SUM of three separate network calls. Running
+    # the upload concurrently with the advisory chain overlaps that wait
+    # instead of stacking it, with zero change to what either path returns —
+    # this doesn't touch the ML model or any output value, purely how long
+    # we wait for two independent things.
+    disease_info = get_disease_information(disease_key)
+    if not disease_info:
+        disease_info = {
+            "name": disease_key,
+            "management": ["Consult local agricultural officer."],
+            "prevention": ["Maintain field sanitation."],
+        }
+
+    async def _upload_image():
+        # Blocking network call (Cloudinary SDK) — run off the event loop
+        # thread so it doesn't stall other requests while it's in flight.
+        return await asyncio.to_thread(upload_image_to_cloud, image_bytes)
+
+    async def _build_advisory():
+        # LLM call needs disease_info (already available locally, no cloud
+        # round-trip) — TTS needs the LLM's output text, so these two stay
+        # sequential relative to EACH OTHER, just not relative to the upload.
+        advisory_text = ""
+        if confidence >= CONFIDENCE_THRESHOLD:
+            try:
+                advisory_text = await asyncio.to_thread(
+                    generate_response,
+                    disease_info=disease_info,
+                    confidence=confidence,
+                    language=language,
+                )
+            except Exception as e:
+                print(f"[LLM WARNING] Advisory generation failed: {e}")
+
+        # Safe Fallback if LLM failed or low confidence
+        if not advisory_text:
+            mgmt = " ".join(disease_info.get("management", []))
+            if language == "mr":
+                advisory_text = f"पिकावर {disease_info.get('name', disease_key)} रोगाची लक्षणे आढळली आहेत. व्यवस्थापन: {mgmt}"
+            elif language == "hi":
+                advisory_text = f"फसल पर {disease_info.get('name', disease_key)} के लक्षण पाए गए हैं। प्रबंधन: {mgmt}"
+            else:
+                advisory_text = f"Symptoms of {disease_info.get('name', disease_key)} detected. Management: {mgmt}"
+
+        audio_path_local = None
+        if voice_service_loaded:
+            try:
+                audio_path_local = await asyncio.to_thread(
+                    generate_regional_audio, text_to_speak=advisory_text, language=language
+                )
+            except Exception as e:
+                print(f"[AUDIO WARNING] Voice synthesis skipped: {e}")
+
+        return advisory_text, audio_path_local
+
+    cloud_url, (advisory_response, audio_path) = await asyncio.gather(
+        _upload_image(), _build_advisory()
+    )
+
     if cloud_url:
         image_url = cloud_url
     else:
@@ -173,44 +236,6 @@ async def predict_disease(
         db_error = str(e)
         print(f"[DB ERROR] Failed to record case {case_id} to Cloud DB: {e}")
         print(traceback.format_exc())
-
-    # 5. Advisory Response via RAG + LLM
-    disease_info = get_disease_information(disease_key)
-    if not disease_info:
-        disease_info = {
-            "name": disease_key,
-            "management": ["Consult local agricultural officer."],
-            "prevention": ["Maintain field sanitation."],
-        }
-
-    advisory_response = ""
-    if confidence >= CONFIDENCE_THRESHOLD:
-        try:
-            advisory_response = generate_response(
-                disease_info=disease_info,
-                confidence=confidence,
-                language=language,
-            )
-        except Exception as e:
-            print(f"[LLM WARNING] Advisory generation failed: {e}")
-
-    # Safe Fallback if LLM failed or low confidence
-    if not advisory_response:
-        mgmt = " ".join(disease_info.get("management", []))
-        if language == "mr":
-            advisory_response = f"पिकावर {disease_info.get('name', disease_key)} रोगाची लक्षणे आढळली आहेत. व्यवस्थापन: {mgmt}"
-        elif language == "hi":
-            advisory_response = f"फसल पर {disease_info.get('name', disease_key)} के लक्षण पाए गए हैं। प्रबंधन: {mgmt}"
-        else:
-            advisory_response = f"Symptoms of {disease_info.get('name', disease_key)} detected. Management: {mgmt}"
-
-    # 6. Generate Regional Audio (Marathi / Hindi / English)
-    audio_path = None
-    if voice_service_loaded:
-        try:
-            audio_path = generate_regional_audio(text_to_speak=advisory_response, language=language)
-        except Exception as e:
-            print(f"[AUDIO WARNING] Voice synthesis skipped: {e}")
 
     return PredictionResponse(
         case_id=case_id,
