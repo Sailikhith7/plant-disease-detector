@@ -29,6 +29,12 @@ def generate_response(disease_info: dict, confidence: float, language: str = "mr
     prevention = "\n".join(f"- {item}" for item in disease_info.get("prevention", []))
     management = "\n".join(f"- {item}" for item in disease_info.get("management", []))
 
+    language_constraint = (
+        "Do NOT write any English sentences or alphabets."
+        if language != "en"
+        else "Write only in English — do not switch to or mix in Marathi, Hindi, or any other language."
+    )
+
     prompt = f"""
 You are an expert agricultural assistant.
 A farmer has submitted a crop leaf photo.
@@ -49,7 +55,7 @@ PREVENTION:
 TASK:
 Provide a clear, 3-4 line practical diagnosis and treatment advice for the farmer.
 STRICT INSTRUCTION: The ENTIRE response MUST be written in {language_name}.
-Do NOT write any English sentences or alphabets.
+{language_constraint}
 """
 
     headers = {
@@ -70,5 +76,12 @@ Do NOT write any English sentences or alphabets.
     except Exception as e:
         print(f"Ollama API Error: {e}")
 
-    # Safe fallback if API drops
-    return f"पिकावर {disease_info.get('name')} ची लक्षणे आढळली आहेत. नियंत्रणासाठी: {management}"
+    # Safe fallback if the API drops — kept in the SAME language that was
+    # requested, not hardcoded to Marathi, so an API failure on an English
+    # or Hindi request doesn't silently hand back Marathi text (and audio).
+    fallback_by_language = {
+        "en": f"Symptoms of {disease_info.get('name')} have been detected on the crop. Management: {management}",
+        "hi": f"फसल पर {disease_info.get('name')} के लक्षण दिखाई दिए हैं। प्रबंधन: {management}",
+        "mr": f"पिकावर {disease_info.get('name')} ची लक्षणे आढळली आहेत. नियंत्रणासाठी: {management}",
+    }
+    return fallback_by_language.get(language, fallback_by_language["mr"])

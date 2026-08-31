@@ -47,6 +47,8 @@
             farmers.py
             inputs.py
             voice.py
+            weather.py
+            __init__.py
             __pycache__/
                 alerts.cpython-314.pyc
                 analytics.cpython-314.pyc
@@ -54,6 +56,8 @@
                 farmers.cpython-314.pyc
                 inputs.cpython-314.pyc
                 voice.cpython-314.pyc
+                weather.cpython-314.pyc
+                __init__.cpython-314.pyc
         schemas/
             case_schema.py
             farmer_schema.py
@@ -72,6 +76,8 @@
             audio/
                 advisory_en_0a2ab42e20f7.mp3
                 advisory_en_0be951cbe1ad.mp3
+                advisory_en_0e6b108cb98a.mp3
+                advisory_en_10b40934d9a3.mp3
                 advisory_en_2611fa5ffa9c.mp3
                 advisory_en_32f37778e300.mp3
                 advisory_en_3cfeb66fdd3a.mp3
@@ -86,6 +92,8 @@
                 advisory_mr_d181b3be0544.mp3
                 advisory_mr_e09d944117e4.mp3
                 advisory_mr_e480b29feccf.mp3
+                prescription_mr_4239ab1f599a.mp3
+                prescription_mr_98c8cdb52b1a.mp3
         tests/
             test.py
             test_client.py
@@ -144,6 +152,7 @@
                                         ApiClient.kt
                                         ApiService.kt
                                         CaseModels.kt
+                                        WeatherModels.kt
                                 sync/
                                     SyncWorker.kt
                                 ui/
@@ -161,6 +170,7 @@
                                         HomeScreen.kt
                                         InputBookingScreen.kt
                                         OnboardingScreen.kt
+                                        WeatherScreen.kt
                                 voice/
                                     AudioPlayerHelper.kt
                                     VoiceInputHelper.kt
@@ -669,7 +679,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 # Routers
-from backend.routers import analytics, cases, inputs, alerts, farmers
+from backend.routers import analytics, cases, inputs, alerts, farmers, weather
 try:
     from backend.routers import voice
     voice_router_available = True
@@ -725,7 +735,16 @@ app.include_router(inputs.router, prefix="/api", tags=["Prediction & Inputs"])
 app.include_router(cases.router, prefix="/api", tags=["Cases"])
 app.include_router(analytics.router, prefix="/api", tags=["Analytics"])
 app.include_router(alerts.router, prefix="/api/alerts", tags=["Alerts & Outbreaks"])
+
+# NOTE: farmers.router already declares prefix="/api/farmers" internally
+# (see backend/routers/farmers.py). Do NOT add prefix="/api" here too —
+# your friend's weather branch does that, which would double it up into
+# /api/api/farmers/... and 404 every farmer endpoint. Left as-is on purpose.
 app.include_router(farmers.router)
+
+# weather.router declares prefix="/weather" internally, so adding "/api"
+# here gives the mobile app's expected /api/weather/... paths.
+app.include_router(weather.router, prefix="/api", tags=["Weather Risk Advisory"])
 
 if voice_router_available:
     app.include_router(voice.router, prefix="/api/voice", tags=["Voice Advisory"])
@@ -2388,55 +2407,124 @@ def get_chart_data(db: Session = Depends(get_db)):
     }
 
 --- FILE: .\backend\routers\cases.py ---
-﻿from fastapi import APIRouter, HTTPException, Depends
+﻿# backend/routers/cases.py
+import os
+import hashlib
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, inspect, text
+from gtts import gTTS
 
 from backend.database import get_db, Case, Farmer, ExpertResponse, Base, engine
 
-# Make sure tables exist on whichever DB DATABASE_URL points to (Neon in prod,
-# local sqlite in dev). This is idempotent (CREATE TABLE IF NOT EXISTS-style).
+# Ensure tables are created
 Base.metadata.create_all(bind=engine)
+
+# Migration check for audio_url column
+try:
+    inspector = inspect(engine)
+    if "expert_responses" in inspector.get_table_names():
+        existing_cols = {c["name"] for c in inspector.get_columns("expert_responses")}
+        if "audio_url" not in existing_cols:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE expert_responses ADD COLUMN audio_url VARCHAR"))
+                conn.commit()
+except Exception as e:
+    print(f"[MIGRATION WARNING] Could not verify/add audio_url column: {e}")
 
 router = APIRouter(
     prefix="/cases",
     tags=["Cases"]
 )
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+AUDIO_DIR = os.path.join(STATIC_DIR, "audio")
+os.makedirs(AUDIO_DIR, exist_ok=True)
+
 
 def _confidence_percent(conf_val):
-    conf_val = conf_val if conf_val is not None else 0.0
-    conf_val = float(conf_val)
-    return round(conf_val * 100) if conf_val <= 1.0 else round(conf_val)
+    if conf_val is None:
+        return 0
+    try:
+        conf_val = float(conf_val)
+        return round(conf_val * 100) if conf_val <= 1.0 else round(conf_val)
+    except:
+        return 0
 
 
-def _status_label(raw_status):
+def _status_label(raw_status, has_response=False):
     raw_status = str(raw_status).lower() if raw_status else "pending"
-    return "Resolved" if "resolve" in raw_status else "Pending Expert"
+    return "Resolved" if ("resolve" in raw_status or has_response) else "Pending Expert"
+
+
+def generate_tts_audio(text_content: str, lang: str = "mr") -> str:
+    try:
+        clean_text = text_content.strip()
+        if not clean_text:
+            return ""
+
+        text_hash = hashlib.md5(f"{clean_text}_{lang}".encode("utf-8")).hexdigest()[:12]
+        audio_filename = f"prescription_{lang}_{text_hash}.mp3"
+        audio_filepath = os.path.join(AUDIO_DIR, audio_filename)
+
+        if not os.path.exists(audio_filepath):
+            tts_lang = "hi" if lang in ["hi", "mr"] else "en"
+            tts = gTTS(text=clean_text, lang=tts_lang, slow=False)
+            tts.save(audio_filepath)
+
+        return f"/static/audio/{audio_filename}"
+    except Exception as e:
+        print(f"TTS Generation failed: {e}")
+        return ""
 
 
 @router.get("")
 @router.get("/")
-def list_cases(db: Session = Depends(get_db)):
-    rows = (
+def list_cases(
+    farmer_name: Optional[str] = None,
+    farmer_id: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = (
         db.query(Case, Farmer)
         .outerjoin(Farmer, Case.farmer_id == Farmer.farmer_id)
         .order_by(desc(Case.created_at))
-        .all()
     )
 
+    if farmer_name and farmer_name.strip():
+        search_name = f"%{farmer_name.strip()}%"
+        query = query.filter(
+            (Case.farmer_name.ilike(search_name)) | (Farmer.name.ilike(search_name))
+        )
+    elif farmer_id and farmer_id.strip():
+        query = query.filter(Case.farmer_id == farmer_id.strip())
+
+    rows = query.all()
     cases = []
+
     for case, farmer in rows:
-        farmer_name = (
+        resolved_farmer_name = (
             farmer.name if farmer and farmer.name
             else (case.farmer_name or "Unknown Farmer")
         )
 
+        latest_resp = (
+            db.query(ExpertResponse)
+            .filter(ExpertResponse.case_id == case.case_id)
+            .order_by(desc(ExpertResponse.created_at))
+            .first()
+        )
+
+        has_resp = latest_resp is not None
+        status_str = _status_label(case.status, has_response=has_resp)
+
         cases.append({
             "case_id": case.case_id,
             "farmer_id": case.farmer_id,
-            "farmer_name": farmer_name,
+            "farmer_name": resolved_farmer_name,
             "crop": case.crop,
             "disease": case.disease_detected,
             "confidence": _confidence_percent(case.confidence),
@@ -2445,8 +2533,10 @@ def list_cases(db: Session = Depends(get_db)):
             "latitude": case.latitude,
             "longitude": case.longitude,
             "image_url": case.image_url,
-            "status": _status_label(case.status),
-            "created_at": case.created_at,
+            "status": status_str,
+            "expert_response": latest_resp.expert_response if latest_resp else None,
+            "audio_url": latest_resp.audio_url if latest_resp else None,
+            "created_at": str(case.created_at) if case.created_at else None,
         })
 
     return {
@@ -2468,8 +2558,7 @@ def get_case(case_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Case not found.")
 
     case, farmer = result
-
-    farmer_name = (
+    resolved_farmer_name = (
         farmer.name if farmer and farmer.name
         else (case.farmer_name or "Unknown Farmer")
     )
@@ -2481,10 +2570,12 @@ def get_case(case_id: str, db: Session = Depends(get_db)):
         .first()
     )
 
+    has_resp = latest_response is not None
+
     return {
         "case_id": case.case_id,
         "farmer_id": case.farmer_id,
-        "farmer_name": farmer_name,
+        "farmer_name": resolved_farmer_name,
         "district": case.district,
         "crop": case.crop,
         "disease": case.disease_detected,
@@ -2493,14 +2584,18 @@ def get_case(case_id: str, db: Session = Depends(get_db)):
         "latitude": case.latitude,
         "longitude": case.longitude,
         "image_url": case.image_url,
-        "status": case.status,
+        "status": _status_label(case.status, has_response=has_resp),
         "expert_response": latest_response.expert_response if latest_response else None,
-        "created_at": case.created_at,
+        "audio_url": latest_response.audio_url if latest_response else None,
+        "created_at": str(case.created_at) if case.created_at else None,
     }
 
 
 class ExpertResponseIn(BaseModel):
-    expert_response: str
+    expert_response: Optional[str] = None
+    custom_prescription: Optional[str] = None
+    confirmed_disease: Optional[str] = None
+    language: Optional[str] = "mr"
 
 
 @router.post("/{case_id}/resolve")
@@ -2509,16 +2604,32 @@ def resolve_case(case_id: str, data: ExpertResponseIn, db: Session = Depends(get
     if case is None:
         raise HTTPException(status_code=404, detail="Case not found.")
 
-    db.add(ExpertResponse(case_id=case_id, expert_response=data.expert_response))
-    case.status = "RESOLVED"
+    # Support both 'expert_response' and 'custom_prescription' payload formats from frontend
+    prescription_text = (data.expert_response or data.custom_prescription or "").strip()
+    if not prescription_text:
+        prescription_text = "Standard IPM measures recommended. Monitor field regularly."
 
+    if data.confirmed_disease:
+        case.disease_detected = data.confirmed_disease
+
+    audio_url = generate_tts_audio(prescription_text, lang=data.language or "mr")
+
+    new_response = ExpertResponse(
+        case_id=case_id,
+        expert_response=prescription_text,
+        audio_url=audio_url,
+    )
+
+    db.add(new_response)
+    case.status = "RESOLVED"
     db.commit()
 
     return {
         "status": "success",
         "case_id": case_id,
-        "message": "Case resolved successfully.",
-        "expert_response": data.expert_response
+        "message": "Case resolved with voice prescription.",
+        "expert_response": prescription_text,
+        "audio_url": audio_url
     }
 
 --- FILE: .\backend\routers\farmers.py ---
@@ -2882,6 +2993,295 @@ def get_voice_advisory(payload: VoiceRequest):
         advice_marathi=spoken_text,
         audio_url=audio_path
     )
+
+--- FILE: .\backend\routers\weather.py ---
+import os
+import requests
+from typing import Optional
+from fastapi import APIRouter, Query, BackgroundTasks
+from pydantic import BaseModel
+
+router = APIRouter(
+    prefix="/weather",
+    tags=["Weather Risk & Telegram Outbreak Advisory"]
+)
+
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+DEFAULT_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+
+DISTRICT_COORDINATES = {
+    "Ahilyanagar (Ahmednagar)": {"lat": 19.0952, "lon": 74.7496},
+    "Akola": {"lat": 20.7002, "lon": 77.0082},
+    "Amravati": {"lat": 20.9374, "lon": 77.7796},
+    "Beed": {"lat": 18.9891, "lon": 75.7601},
+    "Bhandara": {"lat": 21.1714, "lon": 79.6547},
+    "Buldhana": {"lat": 20.5293, "lon": 76.1843},
+    "Chandrapur": {"lat": 19.9615, "lon": 79.2961},
+    "Chhatrapati Sambhajinagar (Aurangabad)": {"lat": 19.8762, "lon": 75.3433},
+    "Dhule": {"lat": 20.9042, "lon": 74.7749},
+    "Jalgaon": {"lat": 21.0077, "lon": 75.5626},
+    "Kolhapur": {"lat": 16.7050, "lon": 74.2433},
+    "Nagpur": {"lat": 21.1458, "lon": 79.0882},
+    "Nashik": {"lat": 19.9975, "lon": 73.7898},
+    "Pune": {"lat": 18.5204, "lon": 73.8567},
+    "Ratnagiri": {"lat": 16.9902, "lon": 73.3120},
+    "Solapur": {"lat": 17.6599, "lon": 75.9064},
+    "Wardha": {"lat": 20.7453, "lon": 78.6022},
+    "Yavatmal": {"lat": 20.3888, "lon": 78.1204}
+}
+
+# Multi-Disease Risk Matrix for 5 Crops
+CROP_DISEASE_RULES = {
+    "cotton": [
+        {
+            "disease": "Bacterial Blight / करपा (Cotton)",
+            "min_temp": 22.0, "max_temp": 34.0, "min_humidity": 70.0,
+            "advisory_mr": "हवेत अति-आर्द्रतेमुळे करपा रोगाचा धोका आहे. कॉपर ऑक्सिक्लोराईड @ २५ ग्रॅम/१० ली. फवारा.",
+            "advisory_hi": "हवा में अधिक नमी से करपा/झुलसा रोग का खतरा है। कॉपर ऑक्सीक्लोराइड 50% WP का छिड़काव करें।",
+            "advisory_en": "High risk of Bacterial Blight due to humid conditions. Spray Copper Oxychloride 50% WP."
+        },
+        {
+            "disease": "Grey Mildew / दहिया रोग",
+            "min_temp": 18.0, "max_temp": 28.0, "min_humidity": 60.0,
+            "advisory_mr": "ढगाळ वातावरणामुळे दहिया रोगाचा प्रादुर्भाव संभवतो. कार्बेन्डाझिम फवारा.",
+            "advisory_hi": "बादल छाए रहने से दहिया रोग का जोखिम। कार्बेन्डाजिम का छिड़काव करें।",
+            "advisory_en": "Moderate risk of Grey Mildew. Spray Carbendazim 50% WP."
+        }
+    ],
+    "rice": [
+        {
+            "disease": "Rice Blast / भात करपा",
+            "min_temp": 18.0, "max_temp": 30.0, "min_humidity": 70.0,
+            "advisory_mr": "ढगाळ वातावरण व आर्द्रतेमुळे भातावर करप्याचा धोका. ट्रायसायक्लॅझोल ७५% WP फवारा.",
+            "advisory_hi": "नमी और बादलों के कारण धान में ब्लास्ट/करपा का खतरा। ट्राइसाइक्लाजोल 75% WP का छिड़काव करें।",
+            "advisory_en": "High Blast risk detected due to overcast sky. Apply Tricyclazole 75% WP."
+        },
+        {
+            "disease": "Brown Spot / तपकिरी ठिपके",
+            "min_temp": 24.0, "max_temp": 34.0, "min_humidity": 65.0,
+            "advisory_mr": "तपकिरी ठिपके रोगासाठी पोषक हवामान. मॅन्कोझेब २.५ ग्रॅम/ली फवारावे.",
+            "advisory_hi": "ब्राउन स्पॉट रोग के अनुकूल मौसम। मैंकोजेब का छिड़काव करें।",
+            "advisory_en": "Risk of Brown Leaf Spot. Apply Mancozeb @ 2.5g/L water."
+        }
+    ],
+    "groundnut": [
+        {
+            "disease": "Tikka Leaf Spot / टिक्का रोग",
+            "min_temp": 20.0, "max_temp": 32.0, "min_humidity": 68.0,
+            "advisory_mr": "टिक्का रोगास पोषक हवामान. कार्बेन्डाझिम १२% + मॅन्कोझेब ६३% WP फवारा.",
+            "advisory_hi": "टिक्का रोग का जोखिम। कार्बेन्डाजिम + मैंकोजेब का निवारक छिड़काव करें।",
+            "advisory_en": "Outbreak risk for Tikka Leaf Spot. Spray Mancozeb + Carbendazim."
+        }
+    ],
+    "ragi": [
+        {
+            "disease": "Ragi Blast / मानमोडी करपा",
+            "min_temp": 20.0, "max_temp": 32.0, "min_humidity": 65.0,
+            "advisory_mr": "नाचणीवर मानमोडी/करपा रोगाचा प्रादुर्भाव संभवतो. ५% निंबोळी अर्क फवारा.",
+            "advisory_hi": "रागी पर ब्लास्ट रोग का जोखिम। 5% नीम अर्क का छिड़काव करें।",
+            "advisory_en": "Weather triggers Ragi Blast. Spray 5% Neem Seed Extract."
+        }
+    ],
+    "sugarcane": [
+        {
+            "disease": "Red Rot / लाल कुज",
+            "min_temp": 26.0, "max_temp": 38.0, "min_humidity": 65.0,
+            "advisory_mr": "शेतात ओलावा वाढल्यास लाल कुज रोगाचा धोका. पाण्याचा त्वरित निचरा करा.",
+            "advisory_hi": "खेत में नमी से लाल सड़न का खतरा। जल निकासी सुनिश्चित करें।",
+            "advisory_en": "Risk of Red Rot. Ensure immediate soil drainage."
+        }
+    ]
+}
+
+
+def send_telegram_alert_sync(district: str, crop: str, disease: str, risk_percent: int, advisory: str):
+    if not TELEGRAM_BOT_TOKEN:
+        print(f"[Telegram Alert Log] {district} | {crop} | {disease} | {risk_percent}%")
+        return True
+
+    text = (
+        f"🚨 *कृषी हवामान इशारा | PikRakshak Alert*\n\n"
+        f"📍 *District/जिल्हा:* {district}\n"
+        f"🌾 *Crop/पीक:* {crop.upper()}\n"
+        f"🦠 *Potential Disease:* {disease} ({risk_percent}% Risk)\n\n"
+        f"📢 *Advisory:* {advisory}\n\n"
+        f"_Automated Agrometeorological Warning System_"
+    )
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    try:
+        requests.post(url, json={"chat_id": DEFAULT_CHAT_ID, "text": text, "parse_mode": "Markdown"}, timeout=4)
+        return True
+    except Exception as e:
+        print(f"Telegram error: {e}")
+        return False
+
+
+def fetch_open_meteo(lat: float, lon: float):
+    url = (
+        f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
+        "&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code"
+        "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+        "&forecast_days=5&timezone=auto"
+    )
+    try:
+        resp = requests.get(url, timeout=4)
+        if resp.status_code == 200:
+            data = resp.json()
+            curr = data.get("current", {})
+            daily = data.get("daily", {})
+
+            forecast = []
+            dates = daily.get("time", [])
+            t_max = daily.get("temperature_2m_max", [])
+            t_min = daily.get("temperature_2m_min", [])
+            rain_probs = daily.get("precipitation_probability_max", [])
+
+            for i in range(len(dates)):
+                forecast.append({
+                    "date": dates[i],
+                    "max_temp": t_max[i] if i < len(t_max) else 31.0,
+                    "min_temp": t_min[i] if i < len(t_min) else 22.0,
+                    "rain_prob": rain_probs[i] if i < len(rain_probs) else 20
+                })
+
+            wind = curr.get("wind_speed_10m", 11.0)
+            return {
+                "temperature": curr.get("temperature_2m", 28.5),
+                "humidity": curr.get("relative_humidity_2m", 65.0),
+                "rain_prob": rain_probs[0] if rain_probs else 20,
+                "wind_speed": wind,
+                "uv_index": 6,
+                "spray_safe": (wind < 15.0 and curr.get("precipitation", 0.0) == 0.0),
+                "forecast_5days": forecast
+            }
+    except Exception:
+        pass
+
+    return {
+        "temperature": 28.0,
+        "humidity": 65.0,
+        "rain_prob": 20,
+        "wind_speed": 10.0,
+        "uv_index": 6,
+        "spray_safe": True,
+        "forecast_5days": [
+            {"date": "08-31", "max_temp": 30.0, "min_temp": 22.0, "rain_prob": 20},
+            {"date": "09-01", "max_temp": 29.0, "min_temp": 21.0, "rain_prob": 40},
+            {"date": "09-02", "max_temp": 28.0, "min_temp": 21.0, "rain_prob": 60},
+            {"date": "09-03", "max_temp": 31.0, "min_temp": 23.0, "rain_prob": 15},
+            {"date": "09-04", "max_temp": 32.0, "min_temp": 24.0, "rain_prob": 10}
+        ]
+    }
+
+
+class SimulationInput(BaseModel):
+    crop: str = "cotton"
+    district: str = "Dhule"
+    temperature: float = 28.0
+    humidity: float = 85.0
+    rain_prob: float = 60.0
+    language: str = "mr"
+    trigger_telegram: bool = False
+
+
+@router.get("/full-dashboard")
+def get_full_weather_dashboard(
+    crop: str = Query("rice"),
+    district: str = Query("Dhule"),
+    language: str = Query("mr")
+):
+    crop_key = crop.lower().strip()
+    coords = DISTRICT_COORDINATES.get(district, {"lat": 20.9042, "lon": 74.7749})
+    weather = fetch_open_meteo(coords["lat"], coords["lon"])
+
+    rules = CROP_DISEASE_RULES.get(crop_key, CROP_DISEASE_RULES["cotton"])
+    outbreak = False
+    triggered_disease = None
+    advisory = ""
+    risk_percent = 25
+
+    for rule in rules:
+        if (rule["min_temp"] <= weather["temperature"] <= rule["max_temp"]) and (weather["humidity"] >= rule["min_humidity"]):
+            outbreak = True
+            risk_percent = 88 if weather["humidity"] < 80 else 94
+            triggered_disease = rule["disease"]
+            advisory = rule.get(f"advisory_{language}", rule["advisory_en"])
+            break
+
+    if not outbreak:
+        if language == "hi":
+            advisory = f"अगले ५ दिनों में {crop.capitalize()} फसल के लिए मौसम सुरक्षित और रोगमुक्त रहेगा।"
+        elif language == "mr":
+            advisory = f"पुढील ५ दिवसांत {crop.capitalize()} पिकासाठी हवामान अनुकूल व रोगमुक्त राहील."
+        else:
+            advisory = f"Weather conditions for {crop.capitalize()} are safe and optimal for the next 5 days."
+
+    return {
+        "status": "success",
+        "district": district,
+        "crop": crop,
+        "weather": weather,
+        "risk_assessment": {
+            "is_outbreak_risk": outbreak,
+            "risk_percentage": risk_percent,
+            "potential_disease": triggered_disease,
+            "preventive_advisory": advisory
+        }
+    }
+
+
+@router.post("/simulate")
+def simulate_and_dispatch(data: SimulationInput, background_tasks: BackgroundTasks):
+    crop_key = data.crop.lower().strip()
+    rules = CROP_DISEASE_RULES.get(crop_key, CROP_DISEASE_RULES["cotton"])
+
+    outbreak = False
+    triggered_disease = None
+    advisory = ""
+    risk_percent = 20
+
+    for rule in rules:
+        if (rule["min_temp"] <= data.temperature <= rule["max_temp"]) and (data.humidity >= rule["min_humidity"]):
+            outbreak = True
+            risk_percent = 92 if data.humidity >= 80 else 82
+            triggered_disease = rule["disease"]
+            advisory = rule.get(f"advisory_{data.language}", rule["advisory_en"])
+            break
+
+    if not outbreak:
+        t = round(data.temperature, 1)
+        h = round(data.humidity, 1)
+        if data.language == "hi":
+            advisory = f"इस तापमान ({t}°C) और आर्द्रता ({h}%) पर {data.crop.capitalize()} फसल सुरक्षित है।"
+        elif data.language == "mr":
+            advisory = f"या तापमानात ({t}°C) आणि आर्द्रतेत ({h}%) {data.crop.capitalize()} पिकाला कोणताही धोका नाही."
+        else:
+            advisory = f"At {t}°C and {h}% humidity, conditions are safe for {data.crop.capitalize()}."
+
+    if data.trigger_telegram and outbreak:
+        background_tasks.add_task(
+            send_telegram_alert_sync,
+            data.district,
+            data.crop,
+            triggered_disease or "Fungal Infection",
+            risk_percent,
+            advisory
+        )
+
+    return {
+        "status": "success",
+        "simulated": True,
+        "is_outbreak_risk": outbreak,
+        "risk_percentage": risk_percent,
+        "potential_disease": triggered_disease,
+        "advisory": advisory,
+        "telegram_dispatched": data.trigger_telegram and outbreak
+    }
+
+
+
+--- FILE: .\backend\routers\__init__.py ---
+
 
 --- FILE: .\backend\schemas\case_schema.py ---
 from pydantic import BaseModel
@@ -3985,7 +4385,12 @@ include(":app")
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c664deed-80f9-4b2f-a11d-a2f0cd1f8110" name="Changes" comment="" />
+    <list default="true" id="c664deed-80f9-4b2f-a11d-a2f0cd1f8110" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../backend/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/../backend/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/kisanmitra/data/remote/ApiService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/kisanmitra/data/remote/ApiService.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/kisanmitra/ui/screens/HomeScreen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/kisanmitra/ui/screens/HomeScreen.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../project_context.txt" beforeDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -3994,7 +4399,7 @@ include(":app")
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[PhysicalDevice::serial=KBMBV8QWDY8HMRMZ]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$">
       <ProjectState />
@@ -4019,24 +4424,24 @@ include(":app")
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Android App.app.executor": "Run",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.readMode.enableVisualFormatting": "true",
-    "cf.first.check.clang-format": "false",
-    "cidr.known.project.marker": "true",
-    "git-widget-placeholder": "main",
-    "gradle.sync.parallel.migration.suppressed": "true",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "C:/Users/sonib/StudioProjects/plant-disease-detector/mobile-app",
-    "settings.editor.selected.configurable": "reference.settingsdialog.project.gradle"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Android App.app.executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;gradle.sync.parallel.migration.suppressed&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/sonib/StudioProjects/plant-disease-detector/mobile-app&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;reference.settingsdialog.project.gradle&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager">
     <configuration name="app" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
       <module name="KisanMitra.app" />
@@ -4120,7 +4525,7 @@ include(":app")
       <breakpoints>
         <line-breakpoint enabled="true" type="kotlin-function">
           <url>file://$PROJECT_DIR$/app/src/main/java/com/kisanmitra/ui/screens/HomeScreen.kt</url>
-          <line>190</line>
+          <line>205</line>
           <properties method="processAndSaveCase">
             <option name="WATCH_EXIT" value="false" />
           </properties>
@@ -6909,6 +7314,7 @@ package com.kisanmitra.data.remote
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Response
+import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Multipart
 import retrofit2.http.POST
@@ -6931,6 +7337,18 @@ interface ApiService {
     suspend fun getCases(
         @Query("farmer_name") farmerName: String? = null
     ): Response<CaseListResponse>
+
+    @GET("api/weather/full-dashboard")
+    suspend fun getFullWeatherDashboard(
+        @Query("crop") crop: String,
+        @Query("district") district: String,
+        @Query("language") language: String
+    ): Response<FullWeatherDashboardDto>
+
+    @POST("api/weather/simulate")
+    suspend fun simulateWeatherRisk(
+        @Body payload: SimulationRequestDto
+    ): Response<SimulationResponseDto>
 }
 
 --- FILE: .\mobile-app\app\src\main\java\com\kisanmitra\data\remote\CaseModels.kt ---
@@ -6969,6 +7387,66 @@ data class CaseResponse(
     @SerializedName("language") val language: String = "en",
     @SerializedName("audio_url") val audioUrl: String? = null
 )
+
+--- FILE: .\mobile-app\app\src\main\java\com\kisanmitra\data\remote\WeatherModels.kt ---
+package com.kisanmitra.data.remote
+
+import com.google.gson.annotations.SerializedName
+
+// --- Weather Risk & Advisory Models (used by WeatherScreen.kt) ---
+
+data class DayForecastDto(
+    val date: String = "",
+    @SerializedName("max_temp") val maxTemp: Float = 0f,
+    @SerializedName("min_temp") val minTemp: Float = 0f,
+    @SerializedName("rain_prob") val rainProb: Float = 0f
+)
+
+data class FullWeatherDataDto(
+    val temperature: Float = 0f,
+    val humidity: Float = 0f,
+    @SerializedName("rain_prob") val rainProb: Float = 0f,
+    @SerializedName("wind_speed") val windSpeed: Float = 0f,
+    @SerializedName("uv_index") val uvIndex: Int = 5,
+    @SerializedName("spray_safe") val spraySafe: Boolean = true,
+    @SerializedName("forecast_5days") val forecast5days: List<DayForecastDto> = emptyList()
+)
+
+data class RiskAssessmentDto(
+    @SerializedName("is_outbreak_risk") val isOutbreakRisk: Boolean = false,
+    @SerializedName("risk_percentage") val riskPercentage: Int = 0,
+    @SerializedName("potential_disease") val potentialDisease: String? = null,
+    @SerializedName("preventive_advisory") val preventiveAdvisory: String = ""
+)
+
+data class FullWeatherDashboardDto(
+    val status: String = "",
+    val district: String = "",
+    val crop: String = "",
+    val weather: FullWeatherDataDto? = null,
+    @SerializedName("risk_assessment") val riskAssessment: RiskAssessmentDto? = null
+)
+
+data class SimulationRequestDto(
+    val crop: String,
+    val district: String,
+    val temperature: Float,
+    val humidity: Float,
+    @SerializedName("rain_prob") val rainProb: Float,
+    val language: String = "mr",
+    @SerializedName("trigger_telegram") val triggerTelegram: Boolean = true
+)
+
+data class SimulationResponseDto(
+    val status: String = "",
+    val simulated: Boolean = true,
+    @SerializedName("is_outbreak_risk") val isOutbreakRisk: Boolean = false,
+    @SerializedName("risk_percentage") val riskPercentage: Int = 0,
+    @SerializedName("potential_disease") val potentialDisease: String? = null,
+    val advisory: String = "",
+    @SerializedName("telegram_dispatched") val telegramDispatched: Boolean = false
+)
+
 
 --- FILE: .\mobile-app\app\src\main\java\com\kisanmitra\sync\SyncWorker.kt ---
 package com.kisanmitra.sync
@@ -8650,6 +9128,15 @@ private val HOME_DISTRICTS = listOf(
     "Solapur", "Thane", "Wardha", "Washim", "Yavatmal"
 )
 
+// 1. Crops list constant matching weather rules keys
+private val CROPS_LIST = listOf(
+    "cotton" to "कापूस (Cotton)",
+    "groundnut" to "भुईमूग (Groundnut)",
+    "rice" to "भात (Rice)",
+    "ragi" to "नाचणी (Ragi)",
+    "sugarcane" to "ऊस (Sugarcane)"
+)
+
 object AppStrings {
     fun get(lang: String): Map<String, String> = when (lang) {
         "hi" -> mapOf(
@@ -8657,6 +9144,7 @@ object AppStrings {
             "step1_lang" to "१. पसंदीदा भाषा",
             "step2_farmer" to "२. किसान का नाम",
             "step3_district" to "३. जिला (महाराष्ट्र)",
+            "step4_crop" to "४. मुख्य फसल",
             "btn_proceed" to "पत्ती स्कैनर पर जाएं",
             "scanner_instruction" to "कैमरे के सामने संक्रमित पत्ती रखें",
             "btn_capture" to "📸 फोटो लें और विश्लेषण करें",
@@ -8675,6 +9163,7 @@ object AppStrings {
             "disease_name" to "गुलाबी सुंडी (Pink Bollworm)",
             "fallback_advisory" to "फसल अवशेष नष्ट करें, फेरोमोन ट्रैप लगाएं और क्लोरांट्रानिलिप्रोल 18.5% SC @ 60 मिली/एकड़ का छिड़काव करें।",
             "tab_scan" to "स्कैन",
+            "tab_weather" to "मौसम",
             "tab_history" to "इतिहास",
             "tab_expert" to "विशेषज्ञ सलाह",
             "tab_guide" to "गाइडलाइन",
@@ -8694,6 +9183,7 @@ object AppStrings {
             "step1_lang" to "१. पसंतीची भाषा",
             "step2_farmer" to "२. शेतकऱ्याचे नाव",
             "step3_district" to "३. जिल्हा (महाराष्ट्र)",
+            "step4_crop" to "४. मुख्य पीक",
             "btn_proceed" to "पाने स्कॅनरकडे जा",
             "scanner_instruction" to "कॅमेऱ्यासमोर बाधित पान धरा",
             "btn_capture" to "📸 फोटो घ्या आणि विश्लेषण करा",
@@ -8712,6 +9202,7 @@ object AppStrings {
             "disease_name" to "गुलाबी बोंडअळी (Pink Bollworm)",
             "fallback_advisory" to "पिकाचे अवशेष नष्ट करा, कामगंध सापळे लावा आणि योग्य कीटकनाशकाची फवारणी करा.",
             "tab_scan" to "स्कॅन",
+            "tab_weather" to "हवामान",
             "tab_history" to "इतिहास",
             "tab_expert" to "तज्ज्ञ सल्ला",
             "tab_guide" to "मार्गदर्शक",
@@ -8731,6 +9222,7 @@ object AppStrings {
             "step1_lang" to "1. Preferred Language",
             "step2_farmer" to "2. Farmer Full Name",
             "step3_district" to "3. District (Maharashtra)",
+            "step4_crop" to "4. Primary Crop",
             "btn_proceed" to "Proceed to Leaf Scanner",
             "scanner_instruction" to "Align infected leaf in viewfinder",
             "btn_capture" to "📸 Capture & Analyze",
@@ -8749,6 +9241,7 @@ object AppStrings {
             "disease_name" to "Pink Bollworm",
             "fallback_advisory" to "Destroy crop residues, deploy pheromone traps, and apply recommended bio-pesticides or chemical sprays as per IPM guidelines.",
             "tab_scan" to "Scan",
+            "tab_weather" to "Weather",
             "tab_history" to "History",
             "tab_expert" to "Expert Desk",
             "tab_guide" to "Guide",
@@ -9226,6 +9719,8 @@ fun HomeScreen() {
     var selectedLanguage by remember { mutableStateOf("mr") }
     var farmerName by remember { mutableStateOf("") }
     var selectedDistrict by remember { mutableStateOf("Yavatmal") }
+    // 3. Crop selection state
+    var selectedCrop by remember { mutableStateOf("cotton") }
     var isDistrictDropdownExpanded by remember { mutableStateOf(false) }
 
     // Help Dialog State
@@ -9277,9 +9772,11 @@ fun HomeScreen() {
                     outputStream.close()
 
                     capturedPhotoFile = cacheFile
+                    // 4. Pass selectedCrop explicitly
                     val result = processAndSaveCase(
                         context = context,
                         photoFile = cacheFile,
+                        crop = selectedCrop,
                         language = selectedLanguage,
                         farmerName = farmerName,
                         district = selectedDistrict,
@@ -9449,6 +9946,13 @@ fun HomeScreen() {
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 }
                 )
+                // 6. Weather tab placed second with logical index 4
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Refresh, contentDescription = "Weather") },
+                    label = { Text(str["tab_weather"] ?: "हवामान") },
+                    selected = selectedTab == 4,
+                    onClick = { selectedTab = 4 }
+                )
                 NavigationBarItem(
                     icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "History") },
                     label = { Text(str["tab_history"] ?: "History") },
@@ -9585,6 +10089,40 @@ fun HomeScreen() {
                                     }
                                 }
 
+                                // 5. Crop Picker in form
+                                Spacer(modifier = Modifier.height(20.dp))
+                                Text(
+                                    str["step4_crop"] ?: "4. Primary Crop (मुख्य पीक)",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.align(Alignment.Start)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    CROPS_LIST.take(3).forEach { (cropKey, cropLabel) ->
+                                        FilterChip(
+                                            selected = selectedCrop == cropKey,
+                                            onClick = { selectedCrop = cropKey },
+                                            label = { Text(cropLabel, fontSize = 12.sp) }
+                                        )
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    CROPS_LIST.drop(3).forEach { (cropKey, cropLabel) ->
+                                        FilterChip(
+                                            selected = selectedCrop == cropKey,
+                                            onClick = { selectedCrop = cropKey },
+                                            label = { Text(cropLabel, fontSize = 12.sp) }
+                                        )
+                                    }
+                                }
+
                                 Spacer(modifier = Modifier.height(32.dp))
 
                                 Button(
@@ -9641,9 +10179,11 @@ fun HomeScreen() {
                                                     onSuccess = { file ->
                                                         capturedPhotoFile = file
                                                         coroutineScope.launch {
+                                                            // 4. Pass selectedCrop explicitly
                                                             val result = processAndSaveCase(
                                                                 context = context,
                                                                 photoFile = file,
+                                                                crop = selectedCrop,
                                                                 language = selectedLanguage,
                                                                 farmerName = farmerName,
                                                                 district = selectedDistrict,
@@ -9667,9 +10207,11 @@ fun HomeScreen() {
                                                         }
                                                         capturedPhotoFile = fallbackFile
                                                         coroutineScope.launch {
+                                                            // 4. Pass selectedCrop explicitly
                                                             val result = processAndSaveCase(
                                                                 context = context,
                                                                 photoFile = fallbackFile,
+                                                                crop = selectedCrop,
                                                                 language = selectedLanguage,
                                                                 farmerName = farmerName,
                                                                 district = selectedDistrict,
@@ -9695,9 +10237,11 @@ fun HomeScreen() {
                                                 }
                                                 capturedPhotoFile = fallbackFile
                                                 coroutineScope.launch {
+                                                    // 4. Pass selectedCrop explicitly
                                                     val result = processAndSaveCase(
                                                         context = context,
                                                         photoFile = fallbackFile,
+                                                        crop = selectedCrop,
                                                         language = selectedLanguage,
                                                         farmerName = farmerName,
                                                         district = selectedDistrict,
@@ -9928,6 +10472,12 @@ fun HomeScreen() {
                     currentFarmerName = farmerName
                 )
                 3 -> GuideTabContent(selectedLanguage = selectedLanguage)
+                // 7. Route tab index 4 to WeatherScreen
+                4 -> WeatherScreen(
+                    selectedLanguage = selectedLanguage,
+                    selectedDistrict = selectedDistrict,
+                    selectedCrop = selectedCrop
+                )
             }
         }
     }
@@ -9937,6 +10487,371 @@ fun HomeScreen() {
 
 
 --- FILE: .\mobile-app\app\src\main\java\com\kisanmitra\ui\screens\OnboardingScreen.kt ---
+
+
+--- FILE: .\mobile-app\app\src\main\java\com\kisanmitra\ui\screens\WeatherScreen.kt ---
+package com.kisanmitra.ui.screens
+
+import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.kisanmitra.data.remote.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+object WeatherStrings {
+    fun get(lang: String): Map<String, String> = when (lang) {
+        "hi" -> mapOf(
+            "title" to "🌤️ कृषि मौसम केंद्र",
+            "spray_safe" to " छिड़काव के लिए अनुकूल",
+            "spray_avoid" to "🚫 आज छिड़काव न करें",
+            "humidity" to "आर्द्रता",
+            "rain" to "बारिश",
+            "wind" to "हवा",
+            "outlook_5day" to "📅 अगले ५ दिनों का पूर्वानुमान",
+            "risk_warning" to "🔴 रोग का संभावित खतरा",
+            "weather_safe" to "🟢 फसल के लिए मौसम सुरक्षित",
+            "lab_title" to "🧪 Demo Lab: मौसम परिवर्तन सिमुलेटर",
+            "lab_desc" to "तापमान व आर्द्रता स्लाइडर बदलें और Live AI अलर्ट + Telegram देखें।",
+            "temp_lbl" to "तापमान",
+            "hum_lbl" to "हवा में आर्द्रता (Humidity)",
+            "btn_test" to "⚡ Test Risk & Send Telegram Alert",
+            "alert_sent" to "🚨 टेलीग्राम पर अलर्ट भेजा गया!"
+        )
+        "mr" -> mapOf(
+            "title" to "🌤️ कृषी हवामान केंद्र",
+            "spray_safe" to " फवारणी योग्य",
+            "spray_avoid" to "🚫 आज फवारणी टाळा",
+            "humidity" to "आर्द्रता",
+            "rain" to "पाऊस",
+            "wind" to "वारा",
+            "outlook_5day" to "📅 पुढील ५ दिवसांचा अंदाज",
+            "risk_warning" to "🔴 रोगाचा संभाव्य इशारा",
+            "weather_safe" to "🟢 पिकासाठी हवामान सुरक्षित",
+            "lab_title" to "🧪 Demo Lab: हवामान बदल चाचणी",
+            "lab_desc" to "Slider फिरवून तापमान/आर्द्रता बदला आणि Live AI Alert + Telegram बघा.",
+            "temp_lbl" to "तापमान",
+            "hum_lbl" to "हवेतील आर्द्रता (Humidity)",
+            "btn_test" to "⚡ Test Risk & Send Telegram Alert",
+            "alert_sent" to "🚨 टेलिग्रामवर अलर्ट पाठवला!"
+        )
+        else -> mapOf(
+            "title" to "🌤️ Agro-Weather Center",
+            "spray_safe" to "Safe for Spraying",
+            "spray_avoid" to "🚫 Avoid Spraying Today",
+            "humidity" to "Humidity",
+            "rain" to "Rain",
+            "wind" to "Wind",
+            "outlook_5day" to "📅 5-Day Weather Outlook",
+            "risk_warning" to "🔴 Disease Outbreak Warning",
+            "weather_safe" to "🟢 Weather Safe for Crops",
+            "lab_title" to "🧪 Demo Lab: Weather Simulator",
+            "lab_desc" to "Adjust sliders to test climate change impact & trigger Telegram alerts.",
+            "temp_lbl" to "Temperature",
+            "hum_lbl" to "Relative Humidity",
+            "btn_test" to "⚡ Test Risk & Send Telegram Alert",
+            "alert_sent" to "🚨 Alert Sent to Telegram!"
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WeatherScreen(
+    selectedLanguage: String,
+    selectedDistrict: String,
+    selectedCrop: String
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val str = WeatherStrings.get(selectedLanguage)
+
+    var dashboardData by remember { mutableStateOf<FullWeatherDashboardDto?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    // Simulation Sliders State
+    var simTemp by remember { mutableFloatStateOf(26f) }
+    var simHumidity by remember { mutableFloatStateOf(85f) } // Default set to 85% for quick demo
+    var simRain by remember { mutableFloatStateOf(60f) }
+    var simResult by remember { mutableStateOf<SimulationResponseDto?>(null) }
+    var isSimulating by remember { mutableStateOf(false) }
+
+    fun fetchLive() {
+        isLoading = true
+        scope.launch(Dispatchers.IO) {
+            try {
+                val res = ApiClient.apiService.getFullWeatherDashboard(
+                    crop = selectedCrop.ifBlank { "rice" },
+                    district = selectedDistrict.ifBlank { "Dhule" },
+                    language = selectedLanguage
+                )
+                if (res.isSuccessful) {
+                    withContext(Dispatchers.Main) {
+                        dashboardData = res.body()
+                        isLoading = false
+                    }
+                }
+            } catch (_: Exception) {
+                withContext(Dispatchers.Main) { isLoading = false }
+            }
+        }
+    }
+
+    LaunchedEffect(selectedDistrict, selectedCrop, selectedLanguage) {
+        fetchLive()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        // Top Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = str["title"] ?: "🌤️ Agro-Weather Center",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "$selectedDistrict | ${selectedCrop.replaceFirstChar { it.uppercase() }}",
+                    fontSize = 13.sp,
+                    color = Color.DarkGray
+                )
+            }
+            IconButton(onClick = { fetchLive() }) {
+                Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // 1. Current Live Weather Overview Card
+        dashboardData?.weather?.let { w ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🌡️ ${w.temperature}°C", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (w.spraySafe) (str["spray_safe"] ?: "✅ Safe") else (str["spray_avoid"] ?: "🚫 Avoid"),
+                            fontWeight = FontWeight.Bold,
+                            color = if (w.spraySafe) Color(0xFF2E7D32) else Color(0xFFC62828)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("💧 ${str["humidity"]}: ${w.humidity}%", fontSize = 13.sp)
+                        Text("🌧️ ${str["rain"]}: ${w.rainProb}%", fontSize = 13.sp)
+                        Text("💨 ${str["wind"]}: ${w.windSpeed} km/h", fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 2. 5-Day Horizontal Forecast Cards
+        Text(str["outlook_5day"] ?: "📅 5-Day Outlook", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            val list = dashboardData?.weather?.forecast5days ?: emptyList()
+            items(list) { day ->
+                Card(
+                    modifier = Modifier.width(105.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(day.date.takeLast(5), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("⛅", fontSize = 20.sp)
+                        Text("${day.maxTemp.toInt()}° / ${day.minTemp.toInt()}°", fontSize = 12.sp)
+                        Text("🌧️ ${day.rainProb.toInt()}%", fontSize = 11.sp, color = Color.Gray)
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // 3. Outbreak Advisory Card
+        val risk = dashboardData?.riskAssessment
+        val isOutbreak = risk?.isOutbreakRisk == true
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isOutbreak) Color(0xFFFFEBEE) else Color(0xFFE8F5E9)
+            )
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    text = if (isOutbreak) "${str["risk_warning"]} (${risk?.riskPercentage}%)" else (str["weather_safe"] ?: "🟢 Safe"),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = if (isOutbreak) Color(0xFFC62828) else Color(0xFF2E7D32)
+                )
+                if (isOutbreak && !risk?.potentialDisease.isNullOrBlank()) {
+                    Text(
+                        text = "Disease: ${risk?.potentialDisease}",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(text = risk?.preventiveAdvisory ?: "", fontSize = 13.sp, color = Color.DarkGray)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 4. SIH LIVE SIMULATION & TELEGRAM TEST LAB
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = str["lab_title"] ?: "🧪 SIH Demo Lab",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color(0xFF6A1B9A)
+                )
+                Text(
+                    text = str["lab_desc"] ?: "Adjust sliders to test climate change impact.",
+                    fontSize = 12.sp,
+                    color = Color.DarkGray
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text("${str["temp_lbl"]}: ${simTemp.toInt()}°C", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Slider(
+                    value = simTemp,
+                    onValueChange = { simTemp = it },
+                    valueRange = 15f..45f
+                )
+
+                Text("${str["hum_lbl"]}: ${simHumidity.toInt()}%", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Slider(
+                    value = simHumidity,
+                    onValueChange = { simHumidity = it },
+                    valueRange = 30f..100f
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = {
+                        isSimulating = true
+                        scope.launch(Dispatchers.IO) {
+                            try {
+                                val res = ApiClient.apiService.simulateWeatherRisk(
+                                    SimulationRequestDto(
+                                        crop = selectedCrop,
+                                        district = selectedDistrict,
+                                        temperature = simTemp,
+                                        humidity = simHumidity,
+                                        rainProb = simRain,
+                                        language = selectedLanguage,
+                                        triggerTelegram = true
+                                    )
+                                )
+                                if (res.isSuccessful) {
+                                    withContext(Dispatchers.Main) {
+                                        simResult = res.body()
+                                        isSimulating = false
+                                        Toast.makeText(
+                                            context,
+                                            if (simResult?.telegramDispatched == true) (str["alert_sent"] ?: "Alert Dispatched") else "Assessment Updated",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            } catch (_: Exception) {
+                                withContext(Dispatchers.Main) { isSimulating = false }
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7B1FA2))
+                ) {
+                    Icon(Icons.Default.Send, contentDescription = "Simulate")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(str["btn_test"] ?: "⚡ Test Risk & Send Telegram Alert")
+                }
+
+                simResult?.let { s ->
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                if (s.isOutbreakRisk) Color(0xFFFFCDD2) else Color(0xFFC8E6C9),
+                                RoundedCornerShape(8.dp)
+                            )
+                            .padding(10.dp)
+                    ) {
+                        Column {
+                            Text(
+                                text = if (s.isOutbreakRisk) "🚨 ${s.potentialDisease} (${s.riskPercentage}% ${str["humidity"] ?: "Risk"})" else "✅ ${str["weather_safe"]} (${s.riskPercentage}%)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = if (s.isOutbreakRisk) Color(0xFFB71C1C) else Color(0xFF2E7D32)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(text = s.advisory, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(80.dp))
+    }
+}
+
 
 
 --- FILE: .\mobile-app\app\src\main\java\com\kisanmitra\voice\AudioPlayerHelper.kt ---

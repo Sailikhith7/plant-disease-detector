@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 # Routers
-from backend.routers import analytics, cases, inputs, alerts, farmers
+from backend.routers import analytics, cases, inputs, alerts, farmers, weather
 try:
     from backend.routers import voice
     voice_router_available = True
@@ -61,7 +61,16 @@ app.include_router(inputs.router, prefix="/api", tags=["Prediction & Inputs"])
 app.include_router(cases.router, prefix="/api", tags=["Cases"])
 app.include_router(analytics.router, prefix="/api", tags=["Analytics"])
 app.include_router(alerts.router, prefix="/api/alerts", tags=["Alerts & Outbreaks"])
+
+# NOTE: farmers.router already declares prefix="/api/farmers" internally
+# (see backend/routers/farmers.py). Do NOT add prefix="/api" here too —
+# your friend's weather branch does that, which would double it up into
+# /api/api/farmers/... and 404 every farmer endpoint. Left as-is on purpose.
 app.include_router(farmers.router)
+
+# weather.router declares prefix="/weather" internally, so adding "/api"
+# here gives the mobile app's expected /api/weather/... paths.
+app.include_router(weather.router, prefix="/api", tags=["Weather Risk Advisory"])
 
 if voice_router_available:
     app.include_router(voice.router, prefix="/api/voice", tags=["Voice Advisory"])

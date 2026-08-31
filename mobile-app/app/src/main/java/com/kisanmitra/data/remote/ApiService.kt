@@ -3,6 +3,7 @@ package com.kisanmitra.data.remote
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Response
+import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Multipart
 import retrofit2.http.POST
@@ -25,4 +26,16 @@ interface ApiService {
     suspend fun getCases(
         @Query("farmer_name") farmerName: String? = null
     ): Response<CaseListResponse>
+
+    @GET("api/weather/full-dashboard")
+    suspend fun getFullWeatherDashboard(
+        @Query("crop") crop: String,
+        @Query("district") district: String,
+        @Query("language") language: String
+    ): Response<FullWeatherDashboardDto>
+
+    @POST("api/weather/simulate")
+    suspend fun simulateWeatherRisk(
+        @Body payload: SimulationRequestDto
+    ): Response<SimulationResponseDto>
 }
