@@ -72,6 +72,14 @@ private val HOME_DISTRICTS = listOf(
     "Solapur", "Thane", "Wardha", "Washim", "Yavatmal"
 )
 
+private val CROPS_LIST = listOf(
+    "cotton" to "कापूस (Cotton)",
+    "groundnut" to "भुईमूग (Groundnut)",
+    "rice" to "भात (Rice)",
+    "ragi" to "नाचणी (Ragi)",
+    "sugarcane" to "ऊस (Sugarcane)"
+)
+
 object AppStrings {
     fun get(lang: String): Map<String, String> = when (lang) {
         "hi" -> mapOf(
@@ -79,6 +87,7 @@ object AppStrings {
             "step1_lang" to "१. पसंदीदा भाषा",
             "step2_farmer" to "२. किसान का नाम",
             "step3_district" to "३. जिला (महाराष्ट्र)",
+            "step4_crop" to "४. मुख्य फसल",
             "btn_proceed" to "पत्ती स्कैनर पर जाएं",
             "scanner_instruction" to "कैमरे के सामने संक्रमित पत्ती रखें",
             "btn_capture" to "📸 फोटो लें और विश्लेषण करें",
@@ -97,6 +106,7 @@ object AppStrings {
             "disease_name" to "गुलाबी सुंडी (Pink Bollworm)",
             "fallback_advisory" to "फसल अवशेष नष्ट करें, फेरोमोन ट्रैप लगाएं और क्लोरांट्रानिलिप्रोल 18.5% SC @ 60 मिली/एकड़ का छिड़काव करें।",
             "tab_scan" to "स्कैन",
+            "tab_weather" to "मौसम",
             "tab_history" to "इतिहास",
             "tab_expert" to "विशेषज्ञ सलाह",
             "tab_guide" to "गाइडलाइन",
@@ -116,6 +126,7 @@ object AppStrings {
             "step1_lang" to "१. पसंतीची भाषा",
             "step2_farmer" to "२. शेतकऱ्याचे नाव",
             "step3_district" to "३. जिल्हा (महाराष्ट्र)",
+            "step4_crop" to "४. मुख्य पीक",
             "btn_proceed" to "पाने स्कॅनरकडे जा",
             "scanner_instruction" to "कॅमेऱ्यासमोर बाधित पान धरा",
             "btn_capture" to "📸 फोटो घ्या आणि विश्लेषण करा",
@@ -134,6 +145,7 @@ object AppStrings {
             "disease_name" to "गुलाबी बोंडअळी (Pink Bollworm)",
             "fallback_advisory" to "पिकाचे अवशेष नष्ट करा, कामगंध सापळे लावा आणि योग्य कीटकनाशकाची फवारणी करा.",
             "tab_scan" to "स्कॅन",
+            "tab_weather" to "हवामान",
             "tab_history" to "इतिहास",
             "tab_expert" to "तज्ज्ञ सल्ला",
             "tab_guide" to "मार्गदर्शक",
@@ -153,6 +165,7 @@ object AppStrings {
             "step1_lang" to "1. Preferred Language",
             "step2_farmer" to "2. Farmer Full Name",
             "step3_district" to "3. District (Maharashtra)",
+            "step4_crop" to "4. Primary Crop",
             "btn_proceed" to "Proceed to Leaf Scanner",
             "scanner_instruction" to "Align infected leaf in viewfinder",
             "btn_capture" to "📸 Capture & Analyze",
@@ -171,6 +184,7 @@ object AppStrings {
             "disease_name" to "Pink Bollworm",
             "fallback_advisory" to "Destroy crop residues, deploy pheromone traps, and apply recommended bio-pesticides or chemical sprays as per IPM guidelines.",
             "tab_scan" to "Scan",
+            "tab_weather" to "Weather",
             "tab_history" to "History",
             "tab_expert" to "Expert Desk",
             "tab_guide" to "Guide",
@@ -605,6 +619,7 @@ fun HomeScreen() {
     var selectedLanguage by remember { mutableStateOf("mr") }
     var farmerName by remember { mutableStateOf("") }
     var selectedDistrict by remember { mutableStateOf("Yavatmal") }
+    var selectedCrop by remember { mutableStateOf("cotton") }
     var isDistrictDropdownExpanded by remember { mutableStateOf(false) }
 
     var showHelpDialog by remember { mutableStateOf(false) }
@@ -656,6 +671,7 @@ fun HomeScreen() {
                     val result = processAndSaveCase(
                         context = context,
                         photoFile = cacheFile,
+                        crop = selectedCrop,
                         language = selectedLanguage,
                         farmerName = farmerName,
                         district = selectedDistrict,
@@ -821,6 +837,12 @@ fun HomeScreen() {
                     onClick = { selectedTab = 0 }
                 )
                 NavigationBarItem(
+                    icon = { Icon(Icons.Default.Refresh, contentDescription = "Weather") },
+                    label = { Text(str["tab_weather"] ?: "हवामान") },
+                    selected = selectedTab == 4,
+                    onClick = { selectedTab = 4 }
+                )
+                NavigationBarItem(
                     icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "History") },
                     label = { Text(str["tab_history"] ?: "History") },
                     selected = selectedTab == 1,
@@ -953,6 +975,41 @@ fun HomeScreen() {
                                     }
                                 }
 
+                                Spacer(modifier = Modifier.height(20.dp))
+
+                                Text(
+                                    str["step4_crop"] ?: "4. Primary Crop (मुख्य पीक)",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.align(Alignment.Start)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    CROPS_LIST.take(3).forEach { (cropKey, cropLabel) ->
+                                        FilterChip(
+                                            selected = selectedCrop == cropKey,
+                                            onClick = { selectedCrop = cropKey },
+                                            label = { Text(cropLabel, fontSize = 12.sp) }
+                                        )
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    CROPS_LIST.drop(3).forEach { (cropKey, cropLabel) ->
+                                        FilterChip(
+                                            selected = selectedCrop == cropKey,
+                                            onClick = { selectedCrop = cropKey },
+                                            label = { Text(cropLabel, fontSize = 12.sp) }
+                                        )
+                                    }
+                                }
+
                                 Spacer(modifier = Modifier.height(32.dp))
 
                                 Button(
@@ -1012,6 +1069,7 @@ fun HomeScreen() {
                                                             val result = processAndSaveCase(
                                                                 context = context,
                                                                 photoFile = file,
+                                                                crop = selectedCrop,
                                                                 language = selectedLanguage,
                                                                 farmerName = farmerName,
                                                                 district = selectedDistrict,
@@ -1038,6 +1096,7 @@ fun HomeScreen() {
                                                             val result = processAndSaveCase(
                                                                 context = context,
                                                                 photoFile = fallbackFile,
+                                                                crop = selectedCrop,
                                                                 language = selectedLanguage,
                                                                 farmerName = farmerName,
                                                                 district = selectedDistrict,
@@ -1065,6 +1124,7 @@ fun HomeScreen() {
                                                     val result = processAndSaveCase(
                                                         context = context,
                                                         photoFile = fallbackFile,
+                                                        crop = selectedCrop,
                                                         language = selectedLanguage,
                                                         farmerName = farmerName,
                                                         district = selectedDistrict,
@@ -1294,6 +1354,11 @@ fun HomeScreen() {
                     currentFarmerName = farmerName
                 )
                 3 -> GuideTabContent(selectedLanguage = selectedLanguage)
+                4 -> WeatherScreen(
+                    selectedLanguage = selectedLanguage,
+                    selectedDistrict = selectedDistrict,
+                    selectedCrop = selectedCrop
+                )
             }
         }
     }

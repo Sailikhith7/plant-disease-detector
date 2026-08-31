@@ -4,8 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-# Routers
-from backend.routers import analytics, cases, inputs, alerts, farmers
+# Routers Import
+from backend.routers import analytics, cases, inputs, alerts, farmers, weather
+
 try:
     from backend.routers import voice
     voice_router_available = True
@@ -55,7 +56,8 @@ app.include_router(inputs.router, prefix="/api", tags=["Prediction & Inputs"])
 app.include_router(cases.router, prefix="/api", tags=["Cases"])
 app.include_router(analytics.router, prefix="/api", tags=["Analytics"])
 app.include_router(alerts.router, prefix="/api/alerts", tags=["Alerts & Outbreaks"])
-app.include_router(farmers.router)
+app.include_router(farmers.router, prefix="/api", tags=["Farmers"])
+app.include_router(weather.router, prefix="/api", tags=["Weather Risk Advisory"])
 
 if voice_router_available:
     app.include_router(voice.router, prefix="/api/voice", tags=["Voice Advisory"])
