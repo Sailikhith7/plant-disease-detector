@@ -47,6 +47,7 @@ import com.kisanmitra.data.local.AppDatabase
 import com.kisanmitra.data.local.CaseEntity
 import com.kisanmitra.data.remote.ApiClient
 import com.kisanmitra.data.remote.CaseResponse
+import com.kisanmitra.data.remote.ExpertReviewRequestDto
 import com.kisanmitra.ui.components.CameraView
 import com.kisanmitra.ui.components.captureImageToFile
 import kotlinx.coroutines.Dispatchers
@@ -72,7 +73,6 @@ private val HOME_DISTRICTS = listOf(
     "Solapur", "Thane", "Wardha", "Washim", "Yavatmal"
 )
 
-// 1. Crops list constant matching weather rules keys
 private val CROPS_LIST = listOf(
     "cotton" to "कापूस (Cotton)",
     "groundnut" to "भुईमूग (Groundnut)",
@@ -120,7 +120,10 @@ object AppStrings {
             "help_helpline_lbl" to "📞 हेल्पलाइन / फोन: ",
             "help_email_lbl" to "✉️ ईमेल: ",
             "help_website_lbl" to "🌐 वेबसाइट: ",
-            "close_btn" to "बंद करें"
+            "close_btn" to "बंद करें",
+            "btn_expert_help" to "👨‍⚕️ संतुष्ट नहीं हैं? विशेषज्ञ से पूछें",
+            "expert_sending" to "विशेषज्ञ को भेजा जा रहा है...",
+            "expert_sent_success" to "आपकी समस्या कृषि विशेषज्ञ को भेज दी गई है।"
         )
         "mr" -> mapOf(
             "title" to "🌱 किसान मित्र",
@@ -159,7 +162,10 @@ object AppStrings {
             "help_helpline_lbl" to "📞 हेल्पलाईन / फोन: ",
             "help_email_lbl" to "✉️ ई-मेल: ",
             "help_website_lbl" to "🌐 संकेतस्थळ: ",
-            "close_btn" to "बंद करा"
+            "close_btn" to "बंद करा",
+            "btn_expert_help" to "👨‍⚕️ समाधानी नाही? तज्ज्ञांना विचारा",
+            "expert_sending" to "तज्ज्ञांकडे पाठवत आहे...",
+            "expert_sent_success" to "तुमची समस्या कृषी तज्ज्ञांकडे पाठवण्यात आली आहे."
         )
         else -> mapOf(
             "title" to "🌱 Kisan Mitra",
@@ -198,7 +204,10 @@ object AppStrings {
             "help_helpline_lbl" to "📞 Helpline / Tel: ",
             "help_email_lbl" to "✉️ Email: ",
             "help_website_lbl" to "🌐 Website: ",
-            "close_btn" to "Close"
+            "close_btn" to "Close",
+            "btn_expert_help" to "👨‍⚕️ Not Satisfied? Ask an Expert",
+            "expert_sending" to "Escalating to Expert...",
+            "expert_sent_success" to "Your case has been forwarded to an agricultural expert."
         )
     }
 }
@@ -265,6 +274,7 @@ suspend fun processAndSaveCase(
     }
 
     CaseResponse(
+        caseId = null,
         crop = crop.ifBlank { "Unknown" },
         disease = "Connection Failed / Parse Error",
         confidence = 0f,
@@ -663,7 +673,6 @@ fun HomeScreen() {
     var selectedLanguage by remember { mutableStateOf("mr") }
     var farmerName by remember { mutableStateOf("") }
     var selectedDistrict by remember { mutableStateOf("Yavatmal") }
-    // 3. Crop selection state
     var selectedCrop by remember { mutableStateOf("cotton") }
     var isDistrictDropdownExpanded by remember { mutableStateOf(false) }
 
@@ -676,6 +685,7 @@ fun HomeScreen() {
     var resultData by remember { mutableStateOf<CaseResponse?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var isAudioPlaying by remember { mutableStateOf(false) }
+    var isSendingToExpert by remember { mutableStateOf(false) }
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
 
     // Stop audio on dispose
@@ -716,7 +726,6 @@ fun HomeScreen() {
                     outputStream.close()
 
                     capturedPhotoFile = cacheFile
-                    // 4. Pass selectedCrop explicitly
                     val result = processAndSaveCase(
                         context = context,
                         photoFile = cacheFile,
@@ -754,7 +763,7 @@ fun HomeScreen() {
         }
     }
 
-    // Help & Support Dialog with Clickable Intents (Call, Mail, Browser)
+    // Help & Support Dialog
     if (showHelpDialog) {
         AlertDialog(
             onDismissRequest = { showHelpDialog = false },
@@ -766,7 +775,6 @@ fun HomeScreen() {
                     Text(text = str["help_desc"] ?: "", fontSize = 14.sp)
                     Spacer(modifier = Modifier.height(2.dp))
 
-                    // 1. Interactive Helpline Phone Number
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -795,7 +803,6 @@ fun HomeScreen() {
                         )
                     }
 
-                    // 2. Interactive Support Email
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -827,7 +834,6 @@ fun HomeScreen() {
                         )
                     }
 
-                    // 3. Interactive Official Website
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -865,6 +871,57 @@ fun HomeScreen() {
         )
     }
 
+    // Send To Expert Handler
+    fun sendToExpert() {
+        val caseId = resultData?.caseId
+        if (caseId.isNullOrBlank()) {
+            Toast.makeText(context, "Case ID not available. Please scan again.", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (isSendingToExpert) return
+
+        isSendingToExpert = true
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val response = ApiClient.apiService.requestExpertReview(
+                    caseId = caseId,
+                    payload = ExpertReviewRequestDto(
+                        reason = "Farmer is not satisfied with the model diagnosis.",
+                        description = "Farmer requested expert review from mobile diagnosis screen."
+                    )
+                )
+
+                withContext(Dispatchers.Main) {
+                    isSendingToExpert = false
+                    if (response.isSuccessful) {
+                        resultData = resultData?.copy(status = "Pending Expert")
+
+                        Toast.makeText(
+                            context,
+                            str["expert_sent_success"] ?: "Your problem has been sent to an expert.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    } else {
+                        Toast.makeText(
+                            context,
+                            "Could not send request to expert: HTTP ${response.code()}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    isSendingToExpert = false
+                    Toast.makeText(
+                        context,
+                        "Expert request failed: ${e.localizedMessage}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -890,7 +947,6 @@ fun HomeScreen() {
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 }
                 )
-                // 6. Weather tab placed second with logical index 4
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Refresh, contentDescription = "Weather") },
                     label = { Text(str["tab_weather"] ?: "हवामान") },
@@ -934,7 +990,6 @@ fun HomeScreen() {
                     ) {
                         when (currentStep) {
                             1 -> {
-                                // 1. Language Selection
                                 Text(
                                     str["step1_lang"] ?: "1. Preferred Language",
                                     fontSize = 17.sp,
@@ -966,7 +1021,6 @@ fun HomeScreen() {
 
                                 Spacer(modifier = Modifier.height(20.dp))
 
-                                // 2. Farmer Name Input
                                 Text(
                                     str["step2_farmer"] ?: "2. Farmer Full Name",
                                     fontSize = 17.sp,
@@ -986,7 +1040,6 @@ fun HomeScreen() {
 
                                 Spacer(modifier = Modifier.height(20.dp))
 
-                                // 3. Maharashtra 36 Districts Dropdown
                                 Text(
                                     str["step3_district"] ?: "3. District (Maharashtra)",
                                     fontSize = 17.sp,
@@ -1033,7 +1086,6 @@ fun HomeScreen() {
                                     }
                                 }
 
-                                // 5. Crop Picker in form
                                 Spacer(modifier = Modifier.height(20.dp))
                                 Text(
                                     str["step4_crop"] ?: "4. Primary Crop (मुख्य पीक)",
@@ -1123,7 +1175,6 @@ fun HomeScreen() {
                                                     onSuccess = { file ->
                                                         capturedPhotoFile = file
                                                         coroutineScope.launch {
-                                                            // 4. Pass selectedCrop explicitly
                                                             val result = processAndSaveCase(
                                                                 context = context,
                                                                 photoFile = file,
@@ -1151,7 +1202,6 @@ fun HomeScreen() {
                                                         }
                                                         capturedPhotoFile = fallbackFile
                                                         coroutineScope.launch {
-                                                            // 4. Pass selectedCrop explicitly
                                                             val result = processAndSaveCase(
                                                                 context = context,
                                                                 photoFile = fallbackFile,
@@ -1181,7 +1231,6 @@ fun HomeScreen() {
                                                 }
                                                 capturedPhotoFile = fallbackFile
                                                 coroutineScope.launch {
-                                                    // 4. Pass selectedCrop explicitly
                                                     val result = processAndSaveCase(
                                                         context = context,
                                                         photoFile = fallbackFile,
@@ -1305,7 +1354,6 @@ fun HomeScreen() {
                                                     lineHeight = 20.sp
                                                 )
 
-                                                // Voice Advisory Player Button
                                                 if (!res.audioUrl.isNullOrEmpty()) {
                                                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -1390,7 +1438,43 @@ fun HomeScreen() {
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.height(24.dp))
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    // --- EXPERT HELP ESCALATION BUTTON ---
+                                    Button(
+                                        onClick = { sendToExpert() },
+                                        enabled = !isSendingToExpert,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(52.dp),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFF6A4C93)
+                                        )
+                                    ) {
+                                        if (isSendingToExpert) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(20.dp),
+                                                color = Color.White,
+                                                strokeWidth = 2.dp
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = str["expert_sending"] ?: "Escalating to Expert...",
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White
+                                            )
+                                        } else {
+                                            Text(
+                                                text = str["btn_expert_help"] ?: "👨‍⚕️ Not Satisfied? Ask an Expert",
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(14.dp))
 
                                     OutlinedButton(
                                         onClick = {
@@ -1416,7 +1500,6 @@ fun HomeScreen() {
                     currentFarmerName = farmerName
                 )
                 3 -> GuideTabContent(selectedLanguage = selectedLanguage)
-                // 7. Route tab index 4 to WeatherScreen
                 4 -> WeatherScreen(
                     selectedLanguage = selectedLanguage,
                     selectedDistrict = selectedDistrict,

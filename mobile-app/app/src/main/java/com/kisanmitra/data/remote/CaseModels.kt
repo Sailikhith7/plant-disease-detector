@@ -33,3 +33,13 @@ data class CaseResponse(
     @SerializedName("language") val language: String = "en",
     @SerializedName("audio_url") val audioUrl: String? = null
 )
+
+data class ExpertReviewRequestDto(
+    @SerializedName("reason") val reason: String,
+    @SerializedName("description") val description: String? = null
+)
+
+data class GenericStatusResponseDto(
+    @SerializedName("status") val status: String = "",
+    @SerializedName("message") val message: String = ""
+)
