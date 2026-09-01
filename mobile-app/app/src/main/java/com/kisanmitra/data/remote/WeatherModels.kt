@@ -2,7 +2,7 @@ package com.kisanmitra.data.remote
 
 import com.google.gson.annotations.SerializedName
 
-// --- Weather Risk & Advisory Models (used by WeatherScreen.kt) ---
+// --- Weather Risk & Multi-Crop Suitability Models ---
 
 data class DayForecastDto(
     val date: String = "",
@@ -34,6 +34,22 @@ data class FullWeatherDashboardDto(
     val crop: String = "",
     val weather: FullWeatherDataDto? = null,
     @SerializedName("risk_assessment") val riskAssessment: RiskAssessmentDto? = null
+)
+
+data class CropSuitabilityDto(
+    val crop: String = "",
+    val status: String = "OPTIMAL", // OPTIMAL, MODERATE, HIGH_RISK
+    @SerializedName("risk_percentage") val riskPercentage: Int = 0,
+    @SerializedName("is_outbreak_risk") val isOutbreakRisk: Boolean = false,
+    @SerializedName("potential_disease") val potentialDisease: String? = null,
+    val advisory: String = ""
+)
+
+data class CropsSuitabilityResponseDto(
+    val status: String = "",
+    val district: String = "",
+    val weather: FullWeatherDataDto? = null,
+    val crops: Map<String, CropSuitabilityDto> = emptyMap()
 )
 
 data class SimulationRequestDto(

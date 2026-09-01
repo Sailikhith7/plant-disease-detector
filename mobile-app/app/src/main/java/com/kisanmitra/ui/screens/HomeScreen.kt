@@ -1,10 +1,12 @@
 package com.kisanmitra.ui.screens
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.location.Geocoder
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.net.Uri
@@ -26,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -43,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import coil.compose.rememberAsyncImagePainter
+import com.google.android.gms.location.LocationServices
 import com.kisanmitra.data.local.AppDatabase
 import com.kisanmitra.data.local.CaseEntity
 import com.kisanmitra.data.remote.ApiClient
@@ -54,32 +58,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-private val HOME_DISTRICTS = listOf(
-    "Ahilyanagar (Ahmednagar)", "Akola", "Amravati", "Beed", "Bhandara",
-    "Buldhana", "Chandrapur", "Chhatrapati Sambhajinagar (Aurangabad)",
-    "Dharashiv (Osmanabad)", "Dhule", "Gadchiroli", "Gondia", "Hingoli",
-    "Jalgaon", "Jalna", "Kolhapur", "Latur", "Mumbai City", "Mumbai Suburban",
-    "Nagpur", "Nanded", "Nandurbar", "Nashik", "Palghar", "Parbhani",
-    "Pune", "Raigad", "Ratnagiri", "Sangli", "Satara", "Sindhudurg",
-    "Solapur", "Thane", "Wardha", "Washim", "Yavatmal"
-)
-
-// 1. Crops list constant matching weather rules keys
-private val CROPS_LIST = listOf(
-    "cotton" to "कापूस (Cotton)",
-    "groundnut" to "भुईमूग (Groundnut)",
-    "rice" to "भात (Rice)",
-    "ragi" to "नाचणी (Ragi)",
-    "sugarcane" to "ऊस (Sugarcane)"
-)
+import java.util.concurrent.TimeUnit
 
 object AppStrings {
     fun get(lang: String): Map<String, String> = when (lang) {
@@ -87,25 +76,22 @@ object AppStrings {
             "title" to "🌱 किसान मित्र",
             "step1_lang" to "१. पसंदीदा भाषा",
             "step2_farmer" to "२. किसान का नाम",
-            "step3_district" to "३. जिला (महाराष्ट्र)",
-            "step4_crop" to "४. मुख्य फसल",
+            "step3_location" to "३. खेत का स्थान (GPS द्वारा स्वतः खोजा गया)",
             "btn_proceed" to "पत्ती स्कैनर पर जाएं",
             "scanner_instruction" to "कैमरे के सामने संक्रमित पत्ती रखें",
             "btn_capture" to "📸 फोटो लें और विश्लेषण करें",
-            "analyzing" to "एआई और आरएजी द्वारा विश्लेषण हो रहा है...",
+            "analyzing" to "एआई द्वारा रोग पहचान हो रही है...",
             "diag_result" to "जांच परिणाम",
             "high_conf" to "उच्च सटीकता (High Confidence)",
             "low_conf" to "समीक्षा आवश्यक (Under Expert Review)",
-            "crop_lbl" to "फसल",
+            "crop_lbl" to "पहचानी गई फसल",
             "farmer_lbl" to "किसान",
-            "district_lbl" to "जिला",
+            "district_lbl" to "स्थान",
             "disease_lbl" to "पहचाना गया रोग",
             "advisory_title" to "एआई उपचार सलाह (RAG Guidance)",
             "play_audio" to "🔊 ऑडियो सलाह सुनें (Play Audio)",
             "playing_audio" to "ऑडियो चल रहा है...",
             "btn_restart" to "दूसरे नमूने की जांच करें",
-            "disease_name" to "गुलाबी सुंडी (Pink Bollworm)",
-            "fallback_advisory" to "फसल अवशेष नष्ट करें, फेरोमोन ट्रैप लगाएं और क्लोरांट्रानिलिप्रोल 18.5% SC @ 60 मिली/एकड़ का छिड़काव करें।",
             "tab_scan" to "स्कैन",
             "tab_weather" to "मौसम",
             "tab_history" to "इतिहास",
@@ -115,36 +101,34 @@ object AppStrings {
             "hist_empty" to "अभी तक कोई इतिहास रिकॉर्ड नहीं मिला।",
             "hist_synced" to "क्लाउड पर सिंक किया गया",
             "hist_pending" to "लोकल सेव (सिंक लंबित)",
-            "help_title" to "महाराष्ट्र कृषि सहायता (Help & Support)",
+            "help_title" to "किसान सहायता (Help & Support)",
             "help_desc" to "यदि आपको फसल निदान या सहायता चाहिए, तो नीचे दिए गए माध्यमों से संपर्क करें:",
             "help_helpline_lbl" to "📞 हेल्पलाइन / फोन: ",
             "help_email_lbl" to "✉️ ईमेल: ",
             "help_website_lbl" to "🌐 वेबसाइट: ",
-            "close_btn" to "बंद करें"
+            "close_btn" to "बंद करें",
+            "loc_detecting" to "📡 GPS लोकेशन खोज रहा है..."
         )
         "mr" -> mapOf(
             "title" to "🌱 किसान मित्र",
             "step1_lang" to "१. पसंतीची भाषा",
             "step2_farmer" to "२. शेतकऱ्याचे नाव",
-            "step3_district" to "३. जिल्हा (महाराष्ट्र)",
-            "step4_crop" to "४. मुख्य पीक",
+            "step3_location" to "३. शेताचे ठिकाण (GPS द्वारे शोधलेले)",
             "btn_proceed" to "पाने स्कॅनरकडे जा",
             "scanner_instruction" to "कॅमेऱ्यासमोर बाधित पान धरा",
             "btn_capture" to "📸 फोटो घ्या आणि विश्लेषण करा",
-            "analyzing" to "एआई व आरएजी द्वारे विश्लेषण सुरू आहे...",
+            "analyzing" to "एआई द्वारे रोग तपासणी सुरू आहे...",
             "diag_result" to "निदान निकाल",
             "high_conf" to "उच्च अचूकता (High Confidence)",
             "low_conf" to "तज्ज्ञ पुनरावलोकन (Under Expert Review)",
-            "crop_lbl" to "पीक",
+            "crop_lbl" to "ओळखलेले पीक",
             "farmer_lbl" to "शेतकरी",
-            "district_lbl" to "जिल्हा",
+            "district_lbl" to "ठिकाण",
             "disease_lbl" to "आढळलेला रोग",
             "advisory_title" to "एआय उपचार सल्ला (RAG Guidance)",
             "play_audio" to "🔊 मराठी सल्ला ऐका (Play Audio)",
             "playing_audio" to "सल्ला वाजत आहे...",
             "btn_restart" to "दुसऱ्या नमुन्याची तपासणी करा",
-            "disease_name" to "गुलाबी बोंडअळी (Pink Bollworm)",
-            "fallback_advisory" to "पिकाचे अवशेष नष्ट करा, कामगंध सापळे लावा आणि योग्य कीटकनाशकाची फवारणी करा.",
             "tab_scan" to "स्कॅन",
             "tab_weather" to "हवामान",
             "tab_history" to "इतिहास",
@@ -154,19 +138,19 @@ object AppStrings {
             "hist_empty" to "अद्याप कोणताही इतिहास आढळला नाही.",
             "hist_synced" to "क्लाउडवर सिंक केले",
             "hist_pending" to "स्थानिक सेव्ह (प्रलंबित)",
-            "help_title" to "महाराष्ट्र कृषी मदत (Help & Support)",
+            "help_title" to "शेतकरी मदत (Help & Support)",
             "help_desc" to "आपल्याला शेतीविषयी किंवा पिकांच्या रोगांबाबतीत मदत हवी असल्यास खालील संपर्कांवर संपर्क साधा:",
             "help_helpline_lbl" to "📞 हेल्पलाईन / फोन: ",
             "help_email_lbl" to "✉️ ई-मेल: ",
             "help_website_lbl" to "🌐 संकेतस्थळ: ",
-            "close_btn" to "बंद करा"
+            "close_btn" to "बंद करा",
+            "loc_detecting" to "📡 GPS लोकेशन शोधत आहे..."
         )
         else -> mapOf(
             "title" to "🌱 Kisan Mitra",
             "step1_lang" to "1. Preferred Language",
             "step2_farmer" to "2. Farmer Full Name",
-            "step3_district" to "3. District (Maharashtra)",
-            "step4_crop" to "4. Primary Crop",
+            "step3_location" to "3. Farm Location (Auto GPS Detected)",
             "btn_proceed" to "Proceed to Leaf Scanner",
             "scanner_instruction" to "Align infected leaf in viewfinder",
             "btn_capture" to "📸 Capture & Analyze",
@@ -174,16 +158,14 @@ object AppStrings {
             "diag_result" to "Diagnosis Result",
             "high_conf" to "High Confidence",
             "low_conf" to "Under Expert Review",
-            "crop_lbl" to "Crop",
+            "crop_lbl" to "Detected Crop",
             "farmer_lbl" to "Farmer",
-            "district_lbl" to "District",
+            "district_lbl" to "Location",
             "disease_lbl" to "Detected Disease",
             "advisory_title" to "AI Treatment Advisory (RAG Guidance)",
             "play_audio" to "🔊 Listen Audio Advisory (Play)",
             "playing_audio" to "Playing Audio Advisory...",
             "btn_restart" to "Diagnose Another Sample",
-            "disease_name" to "Pink Bollworm",
-            "fallback_advisory" to "Destroy crop residues, deploy pheromone traps, and apply recommended bio-pesticides or chemical sprays as per IPM guidelines.",
             "tab_scan" to "Scan",
             "tab_weather" to "Weather",
             "tab_history" to "History",
@@ -193,39 +175,77 @@ object AppStrings {
             "hist_empty" to "No scan records found yet.",
             "hist_synced" to "Synced to Cloud",
             "hist_pending" to "Local Saved (Pending Sync)",
-            "help_title" to "Maharashtra Farmer Help & Support",
-            "help_desc" to "If you need immediate assistance or expert agronomy support across Maharashtra, please reach out via:",
+            "help_title" to "Farmer Help & Support",
+            "help_desc" to "If you need immediate assistance or expert agronomy support, please reach out via:",
             "help_helpline_lbl" to "📞 Helpline / Tel: ",
             "help_email_lbl" to "✉️ Email: ",
             "help_website_lbl" to "🌐 Website: ",
-            "close_btn" to "Close"
+            "close_btn" to "Close",
+            "loc_detecting" to "📡 Detecting GPS Location..."
         )
     }
+}
+
+suspend fun reverseGeocodeCoordinates(context: Context, lat: Double, lon: Double): String = withContext(Dispatchers.IO) {
+    try {
+        val client = OkHttpClient.Builder().connectTimeout(3, TimeUnit.SECONDS).build()
+        val request = Request.Builder()
+            .url("https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lon&format=json")
+            .header("User-Agent", "KisanMitraMobile/1.0")
+            .build()
+        val response = client.newCall(request).execute()
+        if (response.isSuccessful) {
+            val json = JSONObject(response.body?.string() ?: "")
+            val address = json.optJSONObject("address")
+            if (address != null) {
+                val district = address.optString("state_district", "")
+                    .ifBlank { address.optString("county", "") }
+                    .ifBlank { address.optString("city", "") }
+                    .ifBlank { address.optString("town", "") }
+                val state = address.optString("state", "")
+                if (district.isNotBlank() && state.isNotBlank()) {
+                    return@withContext "$district, $state"
+                } else if (district.isNotBlank()) {
+                    return@withContext district
+                }
+            }
+        }
+    } catch (_: Exception) {}
+
+    try {
+        val geocoder = Geocoder(context, Locale.getDefault())
+        val addresses = geocoder.getFromLocation(lat, lon, 1)
+        if (!addresses.isNullOrEmpty()) {
+            val addr = addresses[0]
+            val district = addr.subAdminArea ?: addr.locality ?: addr.adminArea
+            if (!district.isNullOrBlank()) {
+                val state = addr.adminArea ?: ""
+                return@withContext if (state.isNotBlank() && !district.contains(state)) "$district, $state" else district
+            }
+        }
+    } catch (_: Exception) {}
+
+    return@withContext "Guntur, Andhra Pradesh"
 }
 
 suspend fun processAndSaveCase(
     context: Context,
     photoFile: File,
-    crop: String = "",
     language: String,
     farmerName: String,
     district: String,
-    defaultDisease: String
+    latitude: Float,
+    longitude: Float
 ): CaseResponse = withContext(Dispatchers.IO) {
-
     val appContext = context.applicationContext
-    val str = AppStrings.get(language)
-
     try {
         val requestFile = photoFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
         val imagePart = MultipartBody.Part.createFormData("image", photoFile.name, requestFile)
         val langBody = language.toRequestBody("text/plain".toMediaTypeOrNull())
-        val cropBody = crop.toRequestBody("text/plain".toMediaTypeOrNull())
-        val farmerNameBody = farmerName.ifBlank { "App Farmer" }.toRequestBody("text/plain".toMediaTypeOrNull())
+        val cropBody = "".toRequestBody("text/plain".toMediaTypeOrNull())
+        val farmerNameBody = farmerName.ifBlank { "Farmer" }.toRequestBody("text/plain".toMediaTypeOrNull())
         val districtBody = district.toRequestBody("text/plain".toMediaTypeOrNull())
-        val farmerIdBody = "MH_${district.take(3).uppercase()}_001".toRequestBody("text/plain".toMediaTypeOrNull())
-
-        android.util.Log.d("NetworkAPI", "Sending image to /api/predict...")
+        val farmerIdBody = "KM_${Math.abs(district.hashCode()).toString().take(5)}".toRequestBody("text/plain".toMediaTypeOrNull())
 
         val response = ApiClient.apiService.predictDisease(
             image = imagePart,
@@ -238,38 +258,32 @@ suspend fun processAndSaveCase(
 
         if (response.isSuccessful && response.body() != null) {
             val body = response.body()!!
-            android.util.Log.d("NetworkAPI", "Success! Disease: ${body.disease}, Confidence: ${body.confidence}")
-
-            val db = AppDatabase.getDatabase(appContext)
-            db.caseDao().insertCase(
-                CaseEntity(
-                    localImagePath = photoFile.absolutePath,
-                    crop = body.crop,
-                    language = language,
-                    latitude = 16.51f,
-                    longitude = 80.52f,
-                    detectedDisease = body.disease,
-                    confidence = body.confidence,
-                    isSynced = true,
-                    createdAt = System.currentTimeMillis()
+            try {
+                val db = AppDatabase.getDatabase(appContext)
+                db.caseDao().insertCase(
+                    CaseEntity(
+                        localImagePath = photoFile.absolutePath,
+                        crop = body.crop,
+                        language = language,
+                        latitude = latitude,
+                        longitude = longitude,
+                        detectedDisease = body.disease,
+                        confidence = body.confidence,
+                        isSynced = true,
+                        createdAt = System.currentTimeMillis()
+                    )
                 )
-            )
+            } catch (_: Throwable) {}
             return@withContext body
-        } else {
-            val errorBody = response.errorBody()?.string() ?: "Unknown error"
-            android.util.Log.e("NetworkAPI", "Server error HTTP ${response.code()}: $errorBody")
         }
-
-    } catch (e: Throwable) {
-        android.util.Log.e("NetworkAPI", "Network exception during prediction", e)
-    }
+    } catch (_: Throwable) {}
 
     CaseResponse(
-        crop = crop.ifBlank { "Unknown" },
-        disease = "Connection Failed / Parse Error",
+        crop = "Unknown",
+        disease = "Analysis Failed / Connection Error",
         confidence = 0f,
         status = "Error",
-        response = "Could not parse response from backend. Check Logcat for details.",
+        response = "Could not connect to backend server. Please verify network.",
         language = language,
         audioUrl = null
     )
@@ -280,113 +294,39 @@ fun HistoryTabContent(selectedLanguage: String) {
     val context = LocalContext.current
     val str = AppStrings.get(selectedLanguage)
 
-    var casesList by remember {
-        mutableStateOf<List<CaseEntity>>(emptyList())
-    }
-
-    var isLoading by remember {
-        mutableStateOf(true)
-    }
+    var casesList by remember { mutableStateOf<List<CaseEntity>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         try {
-            val db = withContext(Dispatchers.IO) {
-                AppDatabase.getDatabase(context.applicationContext)
+            val db = withContext(Dispatchers.IO) { AppDatabase.getDatabase(context.applicationContext) }
+            db.caseDao().getAllCasesFlow().collect { cases ->
+                casesList = cases
+                isLoading = false
             }
-
-            db.caseDao()
-                .getAllCasesFlow()
-                .collect { cases ->
-                    casesList = cases
-                    isLoading = false
-
-                    android.util.Log.d(
-                        "HistoryTab",
-                        "History updated: ${cases.size} records"
-                    )
-                }
-
-        } catch (e: Exception) {
-            android.util.Log.e(
-                "HistoryTab",
-                "Failed to observe history",
-                e
-            )
-
+        } catch (_: Exception) {
             casesList = emptyList()
             isLoading = false
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-
-        Text(
-            text = str["hist_title"] ?: "Diagnosis History",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Text(text = str["hist_title"] ?: "Diagnosis History", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         Spacer(modifier = Modifier.height(12.dp))
 
-        when {
-            isLoading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 60.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        } else if (casesList.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("🌿", fontSize = 42.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = str["hist_empty"] ?: "No scan records found yet.", color = Color.Gray, fontSize = 15.sp)
                 }
             }
-
-            casesList.isEmpty() -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 60.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            "🌿",
-                            fontSize = 42.sp
-                        )
-
-                        Spacer(
-                            modifier = Modifier.height(8.dp)
-                        )
-
-                        Text(
-                            text = str["hist_empty"]
-                                ?: "No scan records found yet.",
-                            color = Color.Gray,
-                            fontSize = 15.sp
-                        )
-                    }
-                }
-            }
-
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp)
-                ) {
-                    items(casesList) { item ->
-                        HistoryCardView(
-                            item = item,
-                            str = str
-                        )
-                    }
-                }
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 80.dp)) {
+                items(casesList) { item -> HistoryCardView(item = item, str = str) }
             }
         }
     }
@@ -395,11 +335,7 @@ fun HistoryTabContent(selectedLanguage: String) {
 @Composable
 fun HistoryCardView(item: CaseEntity, str: Map<String, String>) {
     val dateString = remember(item.createdAt) {
-        try {
-            SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(Date(item.createdAt))
-        } catch (_: Throwable) {
-            ""
-        }
+        try { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(Date(item.createdAt)) } catch (_: Throwable) { "" }
     }
 
     Card(
@@ -408,99 +344,29 @@ fun HistoryCardView(item: CaseEntity, str: Map<String, String>) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             val file = remember(item.localImagePath) {
-                try {
-                    val f = File(item.localImagePath)
-                    if (f.exists() && f.length() > 0) f else null
-                } catch (_: Throwable) {
-                    null
-                }
+                try { val f = File(item.localImagePath); if (f.exists() && f.length() > 0) f else null } catch (_: Throwable) { null }
             }
 
             if (file != null) {
-                Image(
-                    painter = rememberAsyncImagePainter(model = file),
-                    contentDescription = "Scanned Leaf",
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                    contentScale = ContentScale.Crop
-                )
+                Image(painter = rememberAsyncImagePainter(model = file), contentDescription = "Scanned Leaf", modifier = Modifier.size(80.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
             } else {
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFFE0E0E0)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("🌿", fontSize = 28.sp)
-                }
+                Box(modifier = Modifier.size(80.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFE0E0E0)), contentAlignment = Alignment.Center) { Text("🌿", fontSize = 28.sp) }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "${str["crop_lbl"]}: ${item.crop.replaceFirstChar { it.uppercase() }}",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
-                Text(
-                    text = "${str["disease_lbl"]}: ${item.detectedDisease}",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = "${str["high_conf"]}: ${(item.confidence * 100).toInt()}%",
-                    fontSize = 12.sp,
-                    color = Color.DarkGray
-                )
-                Text(
-                    text = dateString,
-                    fontSize = 11.sp,
-                    color = Color.Gray
-                )
-
+                Text(text = "${str["crop_lbl"]}: ${item.crop.replaceFirstChar { it.uppercase() }}", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(text = "${str["disease_lbl"]}: ${item.detectedDisease}", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                Text(text = "${str["high_conf"]}: ${(item.confidence * 100).toInt()}%", fontSize = 12.sp, color = Color.DarkGray)
+                Text(text = dateString, fontSize = 11.sp, color = Color.Gray)
                 Spacer(modifier = Modifier.height(4.dp))
-
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (item.isSynced) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "Synced",
-                            tint = Color(0xFF2E7D32),
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = str["hist_synced"] ?: "Synced to Cloud",
-                            fontSize = 11.sp,
-                            color = Color(0xFF2E7D32),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Pending Sync",
-                            tint = Color(0xFFF57F17),
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = str["hist_pending"] ?: "Local Saved (Pending Sync)",
-                            fontSize = 11.sp,
-                            color = Color(0xFFF57F17),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+                    Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Synced", tint = Color(0xFF2E7D32), modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = str["hist_synced"] ?: "Synced", fontSize = 11.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -513,135 +379,34 @@ data class GuideItem(val cropName: String, val pests: String, val stage: String,
 fun GuideTabContent(selectedLanguage: String) {
     val guides = when (selectedLanguage) {
         "hi" -> listOf(
-            GuideItem(
-                cropName = "कपास (Cotton)",
-                pests = "गुलाबी सुंडी, सफेद मक्खी, लीफ कर्ल",
-                stage = "फूल और बोंड बनने की अवस्था",
-                tip = "प्रति हेक्टेयर 5 फेरोमोन ट्रैप लगाएं; अत्यधिक नाइट्रोजन खाद के प्रयोग से बचें।"
-            ),
-            GuideItem(
-                cropName = "मूंगफली (Groundnut)",
-                pests = "टिक्का रोग, कॉलर रोट, तना सड़न",
-                stage = "अंकुरण और फली विकास",
-                tip = "ट्राइकोडर्मा से बीज उपचार करें; जलभराव रोकने के लिए उचित जल निकासी रखें।"
-            ),
-            GuideItem(
-                cropName = "रागी (Ragi)",
-                pests = "ब्लास्ट (करपा) रोग, तना छेदक",
-                stage = "टिलरिंग और बाल, फूल आने की अवस्था",
-                tip = "रोग-प्रतिरोधी किस्मों का चयन करें; निवारक उपाय के रूप में नीम के अर्क का छिड़काव करें।"
-            ),
-            GuideItem(
-                cropName = "चावल (Rice)",
-                pests = "धान का ब्लास्ट, शीथ ब्लाइट, बैक्टीरियल ब्लाइट",
-                stage = "फुटाव और बाली निकलते समय",
-                tip = "संतुलित उर्वरक (NPK) दें; खेत में पानी का ठहराव रोकें और प्रमाणित बीजों का उपयोग करें।"
-            ),
-            GuideItem(
-                cropName = "गन्ना (Sugarcane)",
-                pests = "लाल सड़न (रेड रॉट), कण्डवा (स्मट), शीर्ष छेदक",
-                stage = "अंकुरण और कल्ले फूटने की अवस्था",
-                tip = "स्वस्थ व रोगमुक्त बीजों (सेट) का उपयोग करें; फसल चक्र अपनाएं और खेत की सफाई रखें।"
-            )
+            GuideItem("कपास (Cotton)", "गुलाबी सुंडी, सफेद मक्खी", "फूल और बोंड बनने की अवस्था", "प्रति हेक्टेयर 5 फेरोमोन ट्रैप लगाएं; संतुलित खाद दें।"),
+            GuideItem("मूंगफली (Groundnut)", "टिक्का रोग, कॉलर रोट", "अंकुरण और फली विकास", "ट्राइकोडर्मा से बीज उपचार करें; उचित जल निकासी रखें।"),
+            GuideItem("चावल (Rice)", "धान का ब्लास्ट, शीथ ब्लाइट", "फुटाव और बाली निकलते समय", "संतुलित NPK दें; खेत में पानी का ठहराव रोकें।")
         )
         "mr" -> listOf(
-            GuideItem(
-                cropName = "कापूस (Cotton)",
-                pests = "गुलाबी बोंडअळी, पांढरी माशी, मावा",
-                stage = "फुलोरा व बोंडे धरण्याची अवस्था",
-                tip = "हेक्टरी ५ कामगंध सापळे (Pheromone Traps) लावा; अतिरिक्त नत्र (युरिया) खताचा वापर टाळा."
-            ),
-            GuideItem(
-                cropName = "भुईमूग (Groundnut)",
-                pests = "टिक्का रोग, खोडकुज, मूळकुज",
-                stage = "उगवण व शेंगा भरण्याची अवस्था",
-                tip = "ट्रायकोडर्माने बीजप्रक्रिया करा; पाण्याचा निचरा व्यवस्थित ठेवून साचू देऊ नका."
-            ),
-            GuideItem(
-                cropName = "नाचणी/रागी (Ragi)",
-                pests = "करपा (Blast), खोड कीड",
-                stage = "फुटावे फुटण्याची व पोंगा अवस्था",
-                tip = "प्रतिकारक्षम वाणांची निवड करा; प्रतिबंधात्मक उपाय म्हणून निंबोळी अर्काची फवारणी करा."
-            ),
-            GuideItem(
-                cropName = "भात/तांदूळ (Rice)",
-                pests = "करपा (Blast), शीथ ब्लाइट, जिवाणू करपा",
-                stage = "फुटावे फुटणे व लोंबी भरण्याची वेळ",
-                tip = "संतुलित खत व्यवस्थापन ठेवा; शेतात पाणी साचू देऊ नका व प्रमाणित बियाणे वापर करा."
-            ),
-            GuideItem(
-                cropName = "ऊस (Sugarcane)",
-                pests = "लाल कुज (Red Rot), काजळी, खोड कीड",
-                stage = "उगवण व फुटवे फुटण्याची अवस्था",
-                tip = "निरोगी व रोगमुक्त बेणे वापरा; फेरपालट पद्धत अवलंबा व शेत तणमुक्त ठेवा."
-            )
+            GuideItem("कापूस (Cotton)", "गुलाबी बोंडअळी, पांढरी माशी", "फुलोरा व बोंडे धरण्याची अवस्था", "हेक्टरी ५ कामगंध सापळे लावा; अतिरिक्त युरिया टाळा."),
+            GuideItem("भुईमूग (Groundnut)", "टिक्का रोग, खोडकुज", "उगवण व शेंगा भरण्याची अवस्था", "ट्रायकोडर्माने बीजप्रक्रिया करा; पाण्याचा निचरा ठेवा."),
+            GuideItem("भात (Rice)", "करपा (Blast), शीथ ब्लाइट", "फुटावे फुटणे व लोंबी भरण्याची वेळ", "संतुलित खत व्यवस्थापन ठेवा; पाणी साचू देऊ नका.")
         )
         else -> listOf(
-            GuideItem(
-                cropName = "Cotton",
-                pests = "Pink Bollworm, Whitefly, Leaf Curl",
-                stage = "Flowering & Boll Formation Stage",
-                tip = "Install 5 pheromone traps per hectare; avoid excessive chemical nitrogen fertilizer applications."
-            ),
-            GuideItem(
-                cropName = "Groundnut",
-                pests = "Tikka Disease, Collar Rot, Stem Rot",
-                stage = "Seedling & Pod Development Stage",
-                tip = "Treat seeds with Trichoderma viride; maintain proper soil drainage to prevent waterlogging."
-            ),
-            GuideItem(
-                cropName = "Ragi",
-                pests = "Blast Disease, Stem Borer",
-                stage = "Tillering & Flowering Stage",
-                tip = "Use certified blast-resistant varieties; spray neem seed kernel extract (1500 ppm) preventively."
-            ),
-            GuideItem(
-                cropName = "Rice",
-                pests = "Rice Blast, Sheath Blight, Bacterial Blight",
-                stage = "Tillering & Panicle Initiation Stage",
-                tip = "Apply balanced NPK fertilizers; avoid water stagnation and use certified disease-free seeds."
-            ),
-            GuideItem(
-                cropName = "Sugarcane",
-                pests = "Red Rot, Smut, Early Shoot Borer",
-                stage = "Germination & Tillering Stage",
-                tip = "Plant disease-free certified setts; practice field sanitation and regular crop rotation."
-            )
+            GuideItem("Cotton", "Pink Bollworm, Whitefly", "Flowering & Boll Formation", "Install 5 pheromone traps/ha; avoid excess chemical nitrogen."),
+            GuideItem("Groundnut", "Tikka Disease, Collar Rot", "Seedling & Pod Development", "Treat seeds with Trichoderma; ensure good field drainage."),
+            GuideItem("Rice", "Rice Blast, Sheath Blight", "Tillering & Panicle Initiation", "Apply balanced NPK; avoid prolonged water stagnation.")
         )
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "📚 Crop Protection Guidelines",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Text(text = "📚 Crop Protection Guidelines", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         Spacer(modifier = Modifier.height(12.dp))
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(bottom = 80.dp)
-        ) {
+        LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 80.dp)) {
             items(guides) { item ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Text(item.cropName, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text("⚠️ Target: ${item.pests}", fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                        Text("⏳ Critical Stage: ${item.stage}", fontSize = 13.sp)
                         Spacer(modifier = Modifier.height(4.dp))
+                        Text("⚠️ Target: ${item.pests}", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Text("⏳ Stage: ${item.stage}", fontSize = 13.sp)
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text("🛡️ Prevention: ${item.tip}", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
                     }
                 }
@@ -650,6 +415,7 @@ fun GuideTabContent(selectedLanguage: String) {
     }
 }
 
+@SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen() {
@@ -659,17 +425,15 @@ fun HomeScreen() {
     var selectedTab by remember { mutableIntStateOf(0) }
     var currentStep by remember { mutableIntStateOf(1) }
 
-    // User Selection States
-    var selectedLanguage by remember { mutableStateOf("mr") }
+    var selectedLanguage by remember { mutableStateOf("en") }
     var farmerName by remember { mutableStateOf("") }
-    var selectedDistrict by remember { mutableStateOf("Yavatmal") }
-    // 3. Crop selection state
-    var selectedCrop by remember { mutableStateOf("cotton") }
-    var isDistrictDropdownExpanded by remember { mutableStateOf(false) }
 
-    // Help Dialog State
+    var detectedDistrict by remember { mutableStateOf("Guntur, Andhra Pradesh") }
+    var currentLatitude by remember { mutableFloatStateOf(16.49f) }
+    var currentLongitude by remember { mutableFloatStateOf(80.50f) }
+    var isLocationLoading by remember { mutableStateOf(false) }
+
     var showHelpDialog by remember { mutableStateOf(false) }
-
     val str = AppStrings.get(selectedLanguage)
 
     var capturedPhotoFile by remember { mutableStateOf<File?>(null) }
@@ -678,7 +442,6 @@ fun HomeScreen() {
     var isAudioPlaying by remember { mutableStateOf(false) }
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
 
-    // Stop audio on dispose
     DisposableEffect(Unit) {
         onDispose {
             mediaPlayer?.release()
@@ -688,19 +451,57 @@ fun HomeScreen() {
 
     val imageCapture = remember { ImageCapture.Builder().build() }
 
-    var hasCameraPermission by remember {
+    var hasPermissions by remember {
         mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED &&
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         )
+    }
+
+    fun fetchCurrentLocation() {
+        isLocationLoading = true
+        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+        try {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null) {
+                    currentLatitude = location.latitude.toFloat()
+                    currentLongitude = location.longitude.toFloat()
+
+                    coroutineScope.launch {
+                        val districtName = reverseGeocodeCoordinates(context, location.latitude, location.longitude)
+                        detectedDistrict = districtName
+                        isLocationLoading = false
+                    }
+                } else {
+                    isLocationLoading = false
+                }
+            }.addOnFailureListener {
+                isLocationLoading = false
+            }
+        } catch (_: SecurityException) {
+            isLocationLoading = false
+        }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        hasCameraPermission = permissions[Manifest.permission.CAMERA] == true
+        val cam = permissions[Manifest.permission.CAMERA] == true
+        val loc = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true || permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        hasPermissions = cam && loc
+        if (loc) fetchCurrentLocation()
     }
 
-    // Gallery Picker Launcher
+    LaunchedEffect(Unit) {
+        if (!hasPermissions) {
+            permissionLauncher.launch(
+                arrayOf(Manifest.permission.CAMERA, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+            )
+        } else {
+            fetchCurrentLocation()
+        }
+    }
+
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -716,23 +517,21 @@ fun HomeScreen() {
                     outputStream.close()
 
                     capturedPhotoFile = cacheFile
-                    // 4. Pass selectedCrop explicitly
                     val result = processAndSaveCase(
                         context = context,
                         photoFile = cacheFile,
-                        crop = selectedCrop,
                         language = selectedLanguage,
                         farmerName = farmerName,
-                        district = selectedDistrict,
-                        defaultDisease = str["disease_name"] ?: "Pink Bollworm"
+                        district = detectedDistrict,
+                        latitude = currentLatitude,
+                        longitude = currentLongitude
                     )
                     withContext(Dispatchers.Main) {
                         isLoading = false
                         resultData = result
                         currentStep = 3
                     }
-                } catch (e: Throwable) {
-                    android.util.Log.e("GalleryPicker", "Failed to process selected image", e)
+                } catch (_: Throwable) {
                     withContext(Dispatchers.Main) {
                         isLoading = false
                         Toast.makeText(context, "Failed to load image from gallery", Toast.LENGTH_SHORT).show()
@@ -742,144 +541,16 @@ fun HomeScreen() {
         }
     }
 
-    LaunchedEffect(Unit) {
-        if (!hasCameraPermission) {
-            permissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.CAMERA,
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
-        }
-    }
-
-    // Help & Support Dialog with Clickable Intents (Call, Mail, Browser)
-    if (showHelpDialog) {
-        AlertDialog(
-            onDismissRequest = { showHelpDialog = false },
-            title = {
-                Text(text = str["help_title"] ?: "Help & Support", fontWeight = FontWeight.Bold)
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(text = str["help_desc"] ?: "", fontSize = 14.sp)
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    // 1. Interactive Helpline Phone Number
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                try {
-                                    val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02026123648"))
-                                    context.startActivity(dialIntent)
-                                } catch (_: Throwable) {
-                                    Toast.makeText(context, "Unable to open dialer", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                            .padding(vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = str["help_helpline_lbl"] ?: "📞 Helpline: ",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "020-26123648",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            textDecoration = TextDecoration.Underline
-                        )
-                    }
-
-                    // 2. Interactive Support Email
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                try {
-                                    val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
-                                        data = Uri.parse("mailto:comm.agripune-mh@gov.in")
-                                        putExtra(Intent.EXTRA_SUBJECT, "Kisan Mitra - Crop Disease Advisory Assistance")
-                                    }
-                                    context.startActivity(emailIntent)
-                                } catch (_: Throwable) {
-                                    Toast.makeText(context, "No email client found", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                            .padding(vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = str["help_email_lbl"] ?: "✉️ Email: ",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "comm.agripune-mh@gov.in",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            textDecoration = TextDecoration.Underline
-                        )
-                    }
-
-                    // 3. Interactive Official Website
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                try {
-                                    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://krishi.maharashtra.gov.in"))
-                                    context.startActivity(browserIntent)
-                                } catch (_: Throwable) {
-                                    Toast.makeText(context, "Unable to open browser", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                            .padding(vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = str["help_website_lbl"] ?: "🌐 Website: ",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "krishi.maharashtra.gov.in",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            textDecoration = TextDecoration.Underline
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showHelpDialog = false }) {
-                    Text(str["close_btn"] ?: "Close")
-                }
-            }
-        )
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(str["title"] ?: "🌱 Kisan Mitra", fontWeight = FontWeight.Bold) },
                 actions = {
                     IconButton(onClick = { showHelpDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = "Help & Support"
-                        )
+                        Icon(imageVector = Icons.Default.Info, contentDescription = "Help")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             )
         },
         bottomBar = {
@@ -890,10 +561,9 @@ fun HomeScreen() {
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 }
                 )
-                // 6. Weather tab placed second with logical index 4
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Refresh, contentDescription = "Weather") },
-                    label = { Text(str["tab_weather"] ?: "हवामान") },
+                    label = { Text(str["tab_weather"] ?: "Weather") },
                     selected = selectedTab == 4,
                     onClick = { selectedTab = 4 }
                 )
@@ -918,11 +588,7 @@ fun HomeScreen() {
             }
         }
     ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
+        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             when (selectedTab) {
                 0 -> {
                     Column(
@@ -934,7 +600,6 @@ fun HomeScreen() {
                     ) {
                         when (currentStep) {
                             1 -> {
-                                // 1. Language Selection
                                 Text(
                                     str["step1_lang"] ?: "1. Preferred Language",
                                     fontSize = 17.sp,
@@ -966,7 +631,6 @@ fun HomeScreen() {
 
                                 Spacer(modifier = Modifier.height(20.dp))
 
-                                // 2. Farmer Name Input
                                 Text(
                                     str["step2_farmer"] ?: "2. Farmer Full Name",
                                     fontSize = 17.sp,
@@ -978,7 +642,7 @@ fun HomeScreen() {
                                     value = farmerName,
                                     onValueChange = { farmerName = it },
                                     label = { Text("Farmer Name") },
-                                    placeholder = { Text("e.g. Kasim Sheikh") },
+                                    placeholder = { Text("e.g. Anna Sai") },
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(8.dp)
@@ -986,84 +650,49 @@ fun HomeScreen() {
 
                                 Spacer(modifier = Modifier.height(20.dp))
 
-                                // 3. Maharashtra 36 Districts Dropdown
                                 Text(
-                                    str["step3_district"] ?: "3. District (Maharashtra)",
+                                    str["step3_location"] ?: "3. Farm Location (Auto GPS Detected)",
                                     fontSize = 17.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.align(Alignment.Start)
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                ExposedDropdownMenuBox(
-                                    expanded = isDistrictDropdownExpanded,
-                                    onExpandedChange = { isDistrictDropdownExpanded = !isDistrictDropdownExpanded },
-                                    modifier = Modifier.fillMaxWidth()
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant
                                 ) {
-                                    OutlinedTextField(
-                                        value = selectedDistrict,
-                                        onValueChange = {},
-                                        readOnly = true,
-                                        label = { Text("District") },
-                                        trailingIcon = {
-                                            ExposedDropdownMenuDefaults.TrailingIcon(
-                                                expanded = isDistrictDropdownExpanded
-                                            )
-                                        },
-                                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                                        shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier
-                                            .menuAnchor()
-                                            .fillMaxWidth()
-                                    )
-
-                                    ExposedDropdownMenu(
-                                        expanded = isDistrictDropdownExpanded,
-                                        onDismissRequest = { isDistrictDropdownExpanded = false }
+                                    Row(
+                                        modifier = Modifier.padding(14.dp),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        HOME_DISTRICTS.forEach { districtOption ->
-                                            DropdownMenuItem(
-                                                text = { Text(districtOption) },
-                                                onClick = {
-                                                    selectedDistrict = districtOption
-                                                    isDistrictDropdownExpanded = false
-                                                }
+                                        Icon(
+                                            imageVector = Icons.Default.LocationOn,
+                                            contentDescription = "Location",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = if (isLocationLoading) (str["loc_detecting"] ?: "Detecting Location...") else detectedDistrict,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp
+                                            )
+                                            Text(
+                                                text = "GPS: ${String.format(Locale.US, "%.2f", currentLatitude)}°N, ${String.format(Locale.US, "%.2f", currentLongitude)}°E",
+                                                fontSize = 12.sp,
+                                                color = Color.DarkGray
                                             )
                                         }
-                                    }
-                                }
-
-                                // 5. Crop Picker in form
-                                Spacer(modifier = Modifier.height(20.dp))
-                                Text(
-                                    str["step4_crop"] ?: "4. Primary Crop (मुख्य पीक)",
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.align(Alignment.Start)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    CROPS_LIST.take(3).forEach { (cropKey, cropLabel) ->
-                                        FilterChip(
-                                            selected = selectedCrop == cropKey,
-                                            onClick = { selectedCrop = cropKey },
-                                            label = { Text(cropLabel, fontSize = 12.sp) }
-                                        )
-                                    }
-                                }
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    CROPS_LIST.drop(3).forEach { (cropKey, cropLabel) ->
-                                        FilterChip(
-                                            selected = selectedCrop == cropKey,
-                                            onClick = { selectedCrop = cropKey },
-                                            label = { Text(cropLabel, fontSize = 12.sp) }
-                                        )
+                                        IconButton(onClick = { fetchCurrentLocation() }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Refresh,
+                                                contentDescription = "Refresh GPS",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                     }
                                 }
 
@@ -1071,9 +700,7 @@ fun HomeScreen() {
 
                                 Button(
                                     onClick = { currentStep = 2 },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(50.dp),
+                                    modifier = Modifier.fillMaxWidth().height(50.dp),
                                     shape = RoundedCornerShape(10.dp)
                                 ) {
                                     Text(str["btn_proceed"] ?: "Proceed to Leaf Scanner", fontSize = 16.sp)
@@ -1096,13 +723,10 @@ fun HomeScreen() {
                                         .background(Color.Black),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    if (hasCameraPermission) {
-                                        CameraView(
-                                            modifier = Modifier.fillMaxSize(),
-                                            imageCapture = imageCapture
-                                        )
+                                    if (hasPermissions) {
+                                        CameraView(modifier = Modifier.fillMaxSize(), imageCapture = imageCapture)
                                     } else {
-                                        Text("Camera permission required", color = Color.White)
+                                        Text("Camera & Location permissions required", color = Color.White)
                                     }
                                 }
 
@@ -1123,15 +747,14 @@ fun HomeScreen() {
                                                     onSuccess = { file ->
                                                         capturedPhotoFile = file
                                                         coroutineScope.launch {
-                                                            // 4. Pass selectedCrop explicitly
                                                             val result = processAndSaveCase(
                                                                 context = context,
                                                                 photoFile = file,
-                                                                crop = selectedCrop,
                                                                 language = selectedLanguage,
                                                                 farmerName = farmerName,
-                                                                district = selectedDistrict,
-                                                                defaultDisease = str["disease_name"] ?: "Pink Bollworm"
+                                                                district = detectedDistrict,
+                                                                latitude = currentLatitude,
+                                                                longitude = currentLongitude
                                                             )
                                                             isLoading = false
                                                             resultData = result
@@ -1151,15 +774,14 @@ fun HomeScreen() {
                                                         }
                                                         capturedPhotoFile = fallbackFile
                                                         coroutineScope.launch {
-                                                            // 4. Pass selectedCrop explicitly
                                                             val result = processAndSaveCase(
                                                                 context = context,
                                                                 photoFile = fallbackFile,
-                                                                crop = selectedCrop,
                                                                 language = selectedLanguage,
                                                                 farmerName = farmerName,
-                                                                district = selectedDistrict,
-                                                                defaultDisease = str["disease_name"] ?: "Pink Bollworm"
+                                                                district = detectedDistrict,
+                                                                latitude = currentLatitude,
+                                                                longitude = currentLongitude
                                                             )
                                                             isLoading = false
                                                             resultData = result
@@ -1167,8 +789,7 @@ fun HomeScreen() {
                                                         }
                                                     }
                                                 )
-                                            } catch (e: Throwable) {
-                                                android.util.Log.e("CameraCapture", "Capture failed", e)
+                                            } catch (_: Throwable) {
                                                 val fallbackFile = File(context.cacheDir, "sample_scan.jpg").apply {
                                                     if (!exists()) {
                                                         createNewFile()
@@ -1181,15 +802,14 @@ fun HomeScreen() {
                                                 }
                                                 capturedPhotoFile = fallbackFile
                                                 coroutineScope.launch {
-                                                    // 4. Pass selectedCrop explicitly
                                                     val result = processAndSaveCase(
                                                         context = context,
                                                         photoFile = fallbackFile,
-                                                        crop = selectedCrop,
                                                         language = selectedLanguage,
                                                         farmerName = farmerName,
-                                                        district = selectedDistrict,
-                                                        defaultDisease = str["disease_name"] ?: "Pink Bollworm"
+                                                        district = detectedDistrict,
+                                                        latitude = currentLatitude,
+                                                        longitude = currentLongitude
                                                     )
                                                     isLoading = false
                                                     resultData = result
@@ -1197,9 +817,7 @@ fun HomeScreen() {
                                                 }
                                             }
                                         },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(50.dp),
+                                        modifier = Modifier.fillMaxWidth().height(50.dp),
                                         shape = RoundedCornerShape(10.dp)
                                     ) {
                                         Text(str["btn_capture"] ?: "📸 Capture & Analyze", fontSize = 16.sp)
@@ -1209,9 +827,7 @@ fun HomeScreen() {
 
                                     OutlinedButton(
                                         onClick = { galleryLauncher.launch("image/*") },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(50.dp),
+                                        modifier = Modifier.fillMaxWidth().height(50.dp),
                                         shape = RoundedCornerShape(10.dp)
                                     ) {
                                         Text("📁 Choose from Gallery", fontSize = 16.sp)
@@ -1236,11 +852,7 @@ fun HomeScreen() {
                                             .padding(horizontal = 14.dp, vertical = 6.dp)
                                     ) {
                                         Text(
-                                            text = if (isHighConfidence) {
-                                                "${str["high_conf"]} ($confidencePercent%)"
-                                            } else {
-                                                "${str["low_conf"]} ($confidencePercent%)"
-                                            },
+                                            text = if (isHighConfidence) "${str["high_conf"]} ($confidencePercent%)" else "${str["low_conf"]} ($confidencePercent%)",
                                             color = if (isHighConfidence) Color(0xFF2E7D32) else Color(0xFFE65100),
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Bold
@@ -1253,10 +865,7 @@ fun HomeScreen() {
                                         Image(
                                             painter = rememberAsyncImagePainter(file),
                                             contentDescription = "Captured Leaf Sample",
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(200.dp)
-                                                .clip(RoundedCornerShape(12.dp)),
+                                            modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(12.dp)),
                                             contentScale = ContentScale.Crop
                                         )
                                         Spacer(modifier = Modifier.height(12.dp))
@@ -1267,23 +876,10 @@ fun HomeScreen() {
                                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                                     ) {
                                         Column(modifier = Modifier.padding(16.dp)) {
-                                            Text(
-                                                "${str["crop_lbl"]}: ${res.crop.replaceFirstChar { it.uppercase() }}",
-                                                fontSize = 15.sp
-                                            )
-                                            Text(
-                                                "${str["farmer_lbl"]}: ${farmerName.ifBlank { "Kasim" }} | ${str["district_lbl"]}: $selectedDistrict",
-                                                fontSize = 13.sp,
-                                                color = Color.DarkGray
-                                            )
+                                            Text("${str["crop_lbl"]}: ${res.crop.replaceFirstChar { it.uppercase() }}", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                                            Text("${str["farmer_lbl"]}: ${farmerName.ifBlank { "Farmer" }} | ${str["district_lbl"]}: $detectedDistrict", fontSize = 13.sp, color = Color.DarkGray)
                                             Spacer(modifier = Modifier.height(4.dp))
-                                            Text(
-                                                "${str["disease_lbl"]}: ${res.disease.replace('_', ' ').replaceFirstChar { it.uppercase() }}",
-                                                fontSize = 18.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                            Text("Status: ${res.status}", fontSize = 12.sp, color = Color.Gray)
+                                            Text("${str["disease_lbl"]}: ${res.disease.replace('_', ' ').replaceFirstChar { it.uppercase() }}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                         }
                                     }
 
@@ -1299,91 +895,47 @@ fun HomeScreen() {
                                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                                         ) {
                                             Column(modifier = Modifier.padding(14.dp)) {
-                                                Text(
-                                                    text = res.response,
-                                                    fontSize = 14.sp,
-                                                    lineHeight = 20.sp
-                                                )
+                                                Text(text = res.response, fontSize = 14.sp, lineHeight = 20.sp)
 
-                                                // Voice Advisory Player Button
                                                 if (!res.audioUrl.isNullOrEmpty()) {
                                                     Spacer(modifier = Modifier.height(12.dp))
-
                                                     Button(
                                                         onClick = {
                                                             val audioPath = res.audioUrl ?: ""
-                                                            val fullUrl = if (audioPath.startsWith("http")) {
-                                                                audioPath
-                                                            } else {
-                                                                "http://192.168.137.1:8000" + (if (audioPath.startsWith("/")) audioPath else "/$audioPath")
-                                                            }
-
+                                                            val fullUrl = if (audioPath.startsWith("http")) audioPath else "http://192.168.137.1:8000" + (if (audioPath.startsWith("/")) audioPath else "/$audioPath")
                                                             try {
                                                                 if (mediaPlayer == null) {
                                                                     mediaPlayer = MediaPlayer().apply {
                                                                         setAudioAttributes(
-                                                                            AudioAttributes.Builder()
-                                                                                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                                                                                .setUsage(AudioAttributes.USAGE_MEDIA)
-                                                                                .build()
+                                                                            AudioAttributes.Builder().setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).setUsage(AudioAttributes.USAGE_MEDIA).build()
                                                                         )
                                                                         setDataSource(fullUrl)
                                                                         prepareAsync()
-                                                                        setOnPreparedListener {
-                                                                            start()
-                                                                            isAudioPlaying = true
-                                                                            Toast.makeText(context, "Playing Audio...", Toast.LENGTH_SHORT).show()
-                                                                        }
-                                                                        setOnCompletionListener {
-                                                                            isAudioPlaying = false
-                                                                            release()
-                                                                            mediaPlayer = null
-                                                                        }
-                                                                        setOnErrorListener { _, _, _ ->
-                                                                            isAudioPlaying = false
-                                                                            release()
-                                                                            mediaPlayer = null
-                                                                            Toast.makeText(context, "Audio playback error", Toast.LENGTH_SHORT).show()
-                                                                            true
-                                                                        }
+                                                                        setOnPreparedListener { start(); isAudioPlaying = true }
+                                                                        setOnCompletionListener { isAudioPlaying = false; release(); mediaPlayer = null }
                                                                     }
                                                                 } else {
                                                                     mediaPlayer?.let { player ->
                                                                         if (player.isPlaying) {
                                                                             player.pause()
                                                                             isAudioPlaying = false
-                                                                            Toast.makeText(context, "Audio Paused", Toast.LENGTH_SHORT).show()
                                                                         } else {
                                                                             player.start()
                                                                             isAudioPlaying = true
-                                                                            Toast.makeText(context, "Resumed Audio", Toast.LENGTH_SHORT).show()
                                                                         }
                                                                     }
                                                                 }
-                                                            } catch (e: Exception) {
+                                                            } catch (_: Exception) {
                                                                 isAudioPlaying = false
-                                                                mediaPlayer?.release()
-                                                                mediaPlayer = null
-                                                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                                                             }
                                                         },
                                                         modifier = Modifier.fillMaxWidth(),
                                                         shape = RoundedCornerShape(8.dp),
-                                                        colors = ButtonDefaults.buttonColors(
-                                                            containerColor = if (isAudioPlaying) Color(0xFFC62828) else Color(0xFF2E7D32)
-                                                        )
+                                                        colors = ButtonDefaults.buttonColors(containerColor = if (isAudioPlaying) Color(0xFFC62828) else Color(0xFF2E7D32))
                                                     ) {
-                                                        Icon(
-                                                            imageVector = Icons.Default.PlayArrow,
-                                                            contentDescription = if (isAudioPlaying) "Pause Audio" else "Play Audio",
-                                                            tint = Color.White
-                                                        )
+                                                        Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
                                                         Spacer(modifier = Modifier.width(8.dp))
-                                                        Text(
-                                                            text = if (isAudioPlaying) "⏸️ Pause Audio Advisory" else "🔊 Listen Audio Advisory (Play)",
-                                                            color = Color.White,
-                                                            fontWeight = FontWeight.SemiBold
-                                                        )
+                                                        Text(text = if (isAudioPlaying) "⏸️ Pause Audio Advisory" else "🔊 Listen Audio Advisory", color = Color.White, fontWeight = FontWeight.SemiBold)
                                                     }
                                                 }
                                             }
@@ -1392,15 +944,13 @@ fun HomeScreen() {
 
                                     Spacer(modifier = Modifier.height(24.dp))
 
-                                    OutlinedButton(
+                                    Button(
                                         onClick = {
                                             capturedPhotoFile = null
                                             resultData = null
                                             currentStep = 1
                                         },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(50.dp),
+                                        modifier = Modifier.fillMaxWidth().height(50.dp),
                                         shape = RoundedCornerShape(10.dp)
                                     ) {
                                         Text(str["btn_restart"] ?: "Diagnose Another Sample", fontSize = 16.sp)
@@ -1411,16 +961,14 @@ fun HomeScreen() {
                     }
                 }
                 1 -> HistoryTabContent(selectedLanguage = selectedLanguage)
-                2 -> ExpertDeskScreen(
-                    selectedLanguage = selectedLanguage,
-                    currentFarmerName = farmerName
-                )
+                2 -> ExpertDeskScreen(selectedLanguage = selectedLanguage, currentFarmerName = farmerName)
                 3 -> GuideTabContent(selectedLanguage = selectedLanguage)
-                // 7. Route tab index 4 to WeatherScreen
                 4 -> WeatherScreen(
                     selectedLanguage = selectedLanguage,
-                    selectedDistrict = selectedDistrict,
-                    selectedCrop = selectedCrop
+                    selectedDistrict = detectedDistrict,
+                    selectedCrop = "cotton",
+                    latitude = currentLatitude,
+                    longitude = currentLongitude
                 )
             }
         }
