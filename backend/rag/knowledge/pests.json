@@ -1,0 +1,657 @@
+{
+    "Rice_Asiatic_Borer": {
+        "crop": "Rice",
+        "name": "Rice Asiatic Borer",
+        "symptoms": [
+            "Dead hearts in young rice plants",
+            "Whiteheads in mature plants",
+            "Larvae bore into the rice stem"
+        ],
+        "causes": [
+            "Infestation by Asiatic stem borer larvae"
+        ],
+        "favorable_conditions": [
+            "Warm and humid conditions",
+            "Dense crop growth"
+        ],
+        "prevention": [
+            "Remove and destroy affected plant parts",
+            "Maintain field sanitation",
+            "Monitor the crop regularly"
+        ],
+        "management": [
+            "Monitor plants for dead hearts and whiteheads",
+            "Use recommended integrated pest management practices",
+            "Apply locally recommended control measures when infestation is significant"
+        ]
+    },
+
+    "Rice_Brown_Plant_Hopper": {
+        "crop": "Rice",
+        "name": "Rice Brown Plant Hopper",
+        "symptoms": [
+            "Yellowing and drying of rice plants",
+            "Circular patches of drying plants",
+            "Insects found near the base of plants"
+        ],
+        "causes": [
+            "Infestation by brown planthoppers"
+        ],
+        "favorable_conditions": [
+            "Excessive nitrogen application",
+            "Dense crop growth",
+            "High humidity"
+        ],
+        "prevention": [
+            "Avoid excessive nitrogen fertilizer",
+            "Maintain proper plant spacing",
+            "Regularly monitor the crop"
+        ],
+        "management": [
+            "Monitor planthopper populations",
+            "Avoid unnecessary insecticide applications that can destroy natural enemies",
+            "Use locally recommended pest management practices"
+        ]
+    },
+
+    "Rice_Gall_Midge": {
+        "crop": "Rice",
+        "name": "Rice Gall Midge",
+        "symptoms": [
+            "Silver shoots or onion leaf symptoms",
+            "Swollen shoots",
+            "Affected tillers fail to produce normal panicles"
+        ],
+        "causes": [
+            "Infestation by rice gall midge larvae"
+        ],
+        "favorable_conditions": [
+            "Warm and humid weather",
+            "Continuous rice cultivation"
+        ],
+        "prevention": [
+            "Remove affected tillers",
+            "Maintain field sanitation",
+            "Use resistant or recommended varieties where available"
+        ],
+        "management": [
+            "Monitor the crop for silver shoots",
+            "Remove and destroy severely affected tillers",
+            "Follow locally recommended pest management practices"
+        ]
+    },
+
+    "Rice_Leaf_Caterpillar": {
+        "crop": "Rice",
+        "name": "Rice Leaf Caterpillar",
+        "symptoms": [
+            "Leaves are eaten by caterpillars",
+            "Irregular holes in leaves",
+            "Severe infestation can cause extensive leaf damage"
+        ],
+        "causes": [
+            "Infestation by leaf-feeding caterpillars"
+        ],
+        "favorable_conditions": [
+            "Warm weather",
+            "Dense crop growth"
+        ],
+        "prevention": [
+            "Regularly inspect rice leaves",
+            "Remove visible caterpillars when practical",
+            "Maintain field sanitation"
+        ],
+        "management": [
+            "Monitor plants for caterpillars and feeding damage",
+            "Encourage natural enemies",
+            "Use recommended pest management practices when infestation is severe"
+        ]
+    },
+
+    "Rice_Leaf_Hopper": {
+        "crop": "Rice",
+        "name": "Rice Leaf Hopper",
+        "symptoms": [
+            "Yellowing of leaves",
+            "Reduced plant vigor",
+            "Small hoppers may be visible on leaves and stems"
+        ],
+        "causes": [
+            "Infestation by rice leaf hoppers"
+        ],
+        "favorable_conditions": [
+            "Warm conditions",
+            "Dense crop growth",
+            "Excessive nitrogen"
+        ],
+        "prevention": [
+            "Avoid excessive nitrogen application",
+            "Maintain proper spacing",
+            "Regularly monitor plants"
+        ],
+        "management": [
+            "Monitor hopper populations",
+            "Protect beneficial insects",
+            "Use recommended pest management practices"
+        ]
+    },
+
+    "Rice_Leaf_Roller": {
+        "crop": "Rice",
+        "name": "Rice Leaf Roller",
+        "symptoms": [
+            "Leaves rolled or folded lengthwise",
+            "Scraped or damaged leaf surface",
+            "Leaves may appear whitish after feeding"
+        ],
+        "causes": [
+            "Infestation by rice leaf roller larvae"
+        ],
+        "favorable_conditions": [
+            "Warm and humid weather",
+            "Dense crop growth"
+        ],
+        "prevention": [
+            "Regularly inspect leaves",
+            "Avoid excessive nitrogen",
+            "Maintain field sanitation"
+        ],
+        "management": [
+            "Monitor rolled leaves and larvae",
+            "Encourage natural enemies",
+            "Use recommended pest management practices when necessary"
+        ]
+    },
+
+    "Rice_Paddy_Stem_Maggot": {
+        "crop": "Rice",
+        "name": "Rice Paddy Stem Maggot",
+        "symptoms": [
+            "Wilting or drying of young shoots",
+            "Dead heart symptoms",
+            "Larvae damage the plant stem"
+        ],
+        "causes": [
+            "Infestation by stem maggot larvae"
+        ],
+        "favorable_conditions": [
+            "Warm and humid conditions",
+            "Dense crop growth"
+        ],
+        "prevention": [
+            "Remove severely affected plants",
+            "Maintain field sanitation",
+            "Monitor young rice plants"
+        ],
+        "management": [
+            "Inspect plants regularly for dead hearts",
+            "Remove affected plant material",
+            "Use locally recommended pest management practices"
+        ]
+    },
+
+    "Rice_Shell_Pest": {
+        "crop": "Rice",
+        "name": "Rice Shell Pest",
+        "symptoms": [
+            "Damage to rice leaves and plant tissues",
+            "Reduced plant vigor",
+            "Visible pest infestation on plants"
+        ],
+        "causes": [
+            "Infestation by shell pests"
+        ],
+        "favorable_conditions": [
+            "Warm conditions",
+            "Dense vegetation"
+        ],
+        "prevention": [
+            "Maintain field sanitation",
+            "Regularly inspect rice plants",
+            "Remove severely affected plant material"
+        ],
+        "management": [
+            "Monitor pest populations",
+            "Remove visible pests where practical",
+            "Use recommended pest management practices"
+        ]
+    },
+
+    "Rice_Stem_Fly": {
+        "crop": "Rice",
+        "name": "Rice Stem Fly",
+        "symptoms": [
+            "Dead heart symptoms",
+            "Wilting of young shoots",
+            "Larvae damage the rice stem"
+        ],
+        "causes": [
+            "Infestation by rice stem fly larvae"
+        ],
+        "favorable_conditions": [
+            "Warm weather",
+            "Young and actively growing rice plants"
+        ],
+        "prevention": [
+            "Monitor young plants regularly",
+            "Remove severely affected plants",
+            "Maintain field sanitation"
+        ],
+        "management": [
+            "Inspect plants for dead hearts",
+            "Remove and destroy affected plant parts",
+            "Follow locally recommended pest management practices"
+        ]
+    },
+
+    "Rice_Thrips": {
+        "crop": "Rice",
+        "name": "Rice Thrips",
+        "symptoms": [
+            "Silvery or whitish streaks on leaves",
+            "Leaf curling",
+            "Stunted plant growth"
+        ],
+        "causes": [
+            "Infestation by rice thrips"
+        ],
+        "favorable_conditions": [
+            "Hot and dry weather",
+            "Young crop growth"
+        ],
+        "prevention": [
+            "Monitor young plants regularly",
+            "Maintain proper field conditions",
+            "Remove heavily damaged plant material"
+        ],
+        "management": [
+            "Monitor thrips populations",
+            "Encourage beneficial insects",
+            "Use recommended pest management practices when infestation is severe"
+        ]
+    },
+
+    "Rice_Water_Weevil": {
+        "crop": "Rice",
+        "name": "Rice Water Weevil",
+        "symptoms": [
+            "Root feeding damage",
+            "Stunted rice plants",
+            "Reduced plant vigor"
+        ],
+        "causes": [
+            "Infestation by rice water weevil larvae"
+        ],
+        "favorable_conditions": [
+            "Flooded rice fields",
+            "Presence of aquatic conditions during crop establishment"
+        ],
+        "prevention": [
+            "Monitor fields after flooding",
+            "Maintain proper water management",
+            "Remove severely affected plants where practical"
+        ],
+        "management": [
+            "Monitor plants for root damage",
+            "Use appropriate water management practices",
+            "Follow locally recommended pest control measures"
+        ]
+    },
+
+    "Rice_Yellow_Borer": {
+        "crop": "Rice",
+        "name": "Rice Yellow Borer",
+        "symptoms": [
+            "Dead hearts in young rice plants",
+            "Whiteheads in mature plants",
+            "Larvae bore into the rice stem"
+        ],
+        "causes": [
+            "Infestation by yellow stem borer larvae"
+        ],
+        "favorable_conditions": [
+            "Warm and humid weather",
+            "Dense crop growth",
+            "Continuous rice cultivation"
+        ],
+        "prevention": [
+            "Regularly inspect rice plants",
+            "Remove and destroy affected plant parts",
+            "Maintain field sanitation"
+        ],
+        "management": [
+            "Monitor the crop for dead hearts and whiteheads",
+            "Remove severely affected plant parts",
+            "Use recommended integrated pest management practices"
+        ]
+    },
+
+    "cotton_Hadda beetle": {
+        "crop": "Cotton",
+        "name": "Cotton Hadda Beetle",
+        "symptoms": [
+            "Small holes in cotton leaves",
+            "Skeletonization of leaves",
+            "Yellowing or drying of severely damaged leaves"
+        ],
+        "causes": [
+            "Infestation by hadda beetle adults and larvae"
+        ],
+        "favorable_conditions": [
+            "Warm weather",
+            "Dense crop growth"
+        ],
+        "prevention": [
+            "Regularly inspect cotton leaves",
+            "Remove beetles and larvae when practical",
+            "Maintain field sanitation"
+        ],
+        "management": [
+            "Monitor beetle populations",
+            "Remove heavily infested leaves where practical",
+            "Use recommended pest management practices"
+        ]
+    },
+
+    "cotton_Mirid Bug": {
+        "crop": "Cotton",
+        "name": "Cotton Mirid Bug",
+        "symptoms": [
+            "Damage to tender shoots",
+            "Flower and square shedding",
+            "Distorted young plant parts"
+        ],
+        "causes": [
+            "Infestation by cotton mirid bugs"
+        ],
+        "favorable_conditions": [
+            "Warm weather",
+            "Dense cotton growth"
+        ],
+        "prevention": [
+            "Regularly inspect shoots and squares",
+            "Maintain field sanitation",
+            "Monitor pest populations"
+        ],
+        "management": [
+            "Monitor mirid bug populations",
+            "Protect beneficial insects",
+            "Use recommended pest management practices"
+        ]
+    },
+
+    "cotton_Noctuidae": {
+        "crop": "Cotton",
+        "name": "Cotton Noctuidae",
+        "symptoms": [
+            "Feeding damage on cotton leaves",
+            "Holes in leaves",
+            "Damage to buds, flowers or bolls"
+        ],
+        "causes": [
+            "Infestation by noctuid caterpillars"
+        ],
+        "favorable_conditions": [
+            "Warm weather",
+            "Dense crop growth"
+        ],
+        "prevention": [
+            "Regularly inspect cotton plants",
+            "Remove severely infested plant parts",
+            "Maintain field sanitation"
+        ],
+        "management": [
+            "Monitor caterpillar populations",
+            "Encourage natural enemies",
+            "Use recommended integrated pest management practices"
+        ]
+    },
+
+    "cotton_Plant bugs": {
+        "crop": "Cotton",
+        "name": "Cotton Plant Bugs",
+        "symptoms": [
+            "Damage to leaves and tender shoots",
+            "Flower and square damage",
+            "Reduced plant vigor"
+        ],
+        "causes": [
+            "Infestation by cotton plant bugs"
+        ],
+        "favorable_conditions": [
+            "Warm weather",
+            "Dense crop growth"
+        ],
+        "prevention": [
+            "Regularly inspect cotton plants",
+            "Remove heavily infested plant parts",
+            "Maintain field sanitation"
+        ],
+        "management": [
+            "Monitor plant bug populations",
+            "Protect beneficial insects",
+            "Use recommended pest management practices"
+        ]
+    },
+
+    "ragi_Grasshopper": {
+        "crop": "Ragi",
+        "name": "Ragi Grasshopper",
+        "symptoms": [
+            "Irregular holes in leaves",
+            "Leaf edges are eaten",
+            "Severe infestation can cause extensive defoliation"
+        ],
+        "causes": [
+            "Infestation by grasshoppers"
+        ],
+        "favorable_conditions": [
+            "Warm and dry weather",
+            "Presence of weeds around fields"
+        ],
+        "prevention": [
+            "Remove weeds around the field",
+            "Regularly inspect ragi plants",
+            "Monitor grasshopper populations"
+        ],
+        "management": [
+            "Monitor grasshoppers regularly",
+            "Remove visible grasshoppers where practical",
+            "Use recommended pest management practices"
+        ]
+    },
+
+    "ragi_Thrips": {
+        "crop": "Ragi",
+        "name": "Ragi Thrips",
+        "symptoms": [
+            "Silvery streaks on leaves",
+            "Leaf curling",
+            "Stunted plant growth"
+        ],
+        "causes": [
+            "Infestation by thrips"
+        ],
+        "favorable_conditions": [
+            "Hot and dry weather",
+            "Young crop growth"
+        ],
+        "prevention": [
+            "Regularly inspect leaves",
+            "Maintain field sanitation",
+            "Monitor pest populations"
+        ],
+        "management": [
+            "Monitor thrips populations",
+            "Encourage beneficial insects",
+            "Use recommended pest management practices"
+        ]
+    },
+
+    "ragi_aphids": {
+        "crop": "Ragi",
+        "name": "Ragi Aphids",
+        "symptoms": [
+            "Aphids clustered on tender plant parts",
+            "Yellowing of leaves",
+            "Sticky honeydew on plant surfaces",
+            "Reduced plant growth"
+        ],
+        "causes": [
+            "Infestation by aphids"
+        ],
+        "favorable_conditions": [
+            "Warm weather",
+            "Tender plant growth"
+        ],
+        "prevention": [
+            "Regularly inspect tender shoots",
+            "Maintain field sanitation",
+            "Encourage natural enemies"
+        ],
+        "management": [
+            "Monitor aphid populations",
+            "Protect beneficial insects such as ladybirds",
+            "Use recommended pest management practices"
+        ]
+    },
+
+    "ragi_beet_weevil": {
+        "crop": "Ragi",
+        "name": "Ragi Beet Weevil",
+        "symptoms": [
+            "Feeding damage to ragi plant parts",
+            "Reduced plant vigor",
+            "Visible beetles or feeding damage"
+        ],
+        "causes": [
+            "Infestation by beet weevils"
+        ],
+        "favorable_conditions": [
+            "Warm conditions",
+            "Poor field sanitation"
+        ],
+        "prevention": [
+            "Maintain field sanitation",
+            "Regularly inspect plants",
+            "Remove severely affected plant material"
+        ],
+        "management": [
+            "Monitor weevil populations",
+            "Remove visible pests where practical",
+            "Use recommended pest management practices"
+        ]
+    },
+
+    "ragi_cutworm": {
+        "crop": "Ragi",
+        "name": "Ragi Cutworm",
+        "symptoms": [
+            "Young plants cut near the soil surface",
+            "Missing or wilted seedlings",
+            "Larvae may be found in the soil"
+        ],
+        "causes": [
+            "Infestation by cutworm larvae"
+        ],
+        "favorable_conditions": [
+            "Presence of weeds",
+            "Moist soil conditions",
+            "Young crop stage"
+        ],
+        "prevention": [
+            "Remove weeds before planting",
+            "Maintain field sanitation",
+            "Regularly inspect seedlings"
+        ],
+        "management": [
+            "Inspect soil around damaged seedlings",
+            "Remove larvae where practical",
+            "Use recommended pest management practices"
+        ]
+    },
+
+    "ragi_fall_armyworm": {
+        "crop": "Ragi",
+        "name": "Ragi Fall Armyworm",
+        "symptoms": [
+            "Irregular holes in leaves",
+            "Window-pane feeding damage",
+            "Severe defoliation",
+            "Caterpillars may be found inside the crop canopy"
+        ],
+        "causes": [
+            "Infestation by fall armyworm larvae"
+        ],
+        "favorable_conditions": [
+            "Warm weather",
+            "Young crop growth",
+            "Presence of grasses and weeds"
+        ],
+        "prevention": [
+            "Regularly inspect plants",
+            "Remove weeds around fields",
+            "Destroy egg masses and larvae when practical"
+        ],
+        "management": [
+            "Monitor fields frequently for larvae",
+            "Encourage natural enemies",
+            "Use locally recommended integrated pest management practices"
+        ]
+    },
+
+    "ragi_stem_borer": {
+        "crop": "Ragi",
+        "name": "Ragi Stem Borer",
+        "symptoms": [
+            "Dead heart symptoms",
+            "Wilting of young shoots",
+            "Larvae bore into the stem"
+        ],
+        "causes": [
+            "Infestation by stem borer larvae"
+        ],
+        "favorable_conditions": [
+            "Warm weather",
+            "Dense crop growth"
+        ],
+        "prevention": [
+            "Regularly inspect plants",
+            "Remove affected plant parts",
+            "Maintain field sanitation"
+        ],
+        "management": [
+            "Monitor plants for dead hearts",
+            "Remove severely affected stems",
+            "Use recommended pest management practices"
+        ]
+    },
+
+    "ragi_yellow_cutworm": {
+        "crop": "Ragi",
+        "name": "Ragi Yellow Cutworm",
+        "symptoms": [
+            "Seedlings cut near the soil surface",
+            "Wilting or death of young plants",
+            "Larvae may be present in soil near damaged plants"
+        ],
+        "causes": [
+            "Infestation by yellow cutworm larvae"
+        ],
+        "favorable_conditions": [
+            "Young crop stage",
+            "Presence of weeds",
+            "Moist soil conditions"
+        ],
+        "prevention": [
+            "Remove weeds before planting",
+            "Maintain field sanitation",
+            "Inspect seedlings regularly"
+        ],
+        "management": [
+            "Inspect soil around damaged plants",
+            "Remove larvae where practical",
+            "Use recommended pest management practices"
+        ]
+    }
+}

@@ -10,7 +10,7 @@ from PIL import Image, ImageStat
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "weights", "crop_classifier_v1.tflite")
-LABELS_PATH = os.path.join(BASE_DIR, "labels.json")
+LABELS_PATH = os.path.join(BASE_DIR, "disease_labels.json")
 CALIBRATION_PATH = os.path.join(BASE_DIR, "calibration.json")
 
 # ============================================================

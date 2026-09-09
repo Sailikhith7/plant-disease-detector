@@ -30,18 +30,42 @@ class Case(Base):
     __tablename__ = "cases"
 
     case_id = Column(String(100), primary_key=True, index=True)
+
     farmer_id = Column(String(100), nullable=True)
     farmer_name = Column(String(255), nullable=True)
+
     district = Column(String(100), nullable=True)
+
     crop = Column(String(100), nullable=True)
+
+    # Disease prediction
     disease_detected = Column(String(255), nullable=True)
     confidence = Column(Float, nullable=True)
+
+    # Pest prediction
+    pest_detected = Column(String(255), nullable=True)
+    pest_confidence = Column(Float, nullable=True)
+    pest_status = Column(String(50), nullable=True)
+
+    # Other case information
     severity = Column(String(50), nullable=True)
+
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
+
     image_url = Column(Text, nullable=True)
-    status = Column(String(50), default="Pending Expert")
-    created_at = Column(String(100), default=lambda: datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
+
+    status = Column(
+        String(50),
+        default="Pending Expert"
+    )
+
+    created_at = Column(
+        String(100),
+        default=lambda: datetime.utcnow().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+    )
 
 
 class ExpertResponse(Base):
