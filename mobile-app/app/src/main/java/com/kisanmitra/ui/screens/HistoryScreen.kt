@@ -90,7 +90,7 @@ fun HistoryScreen(selectedLanguage: String = "en") {
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🌿", fontSize = 48.sp)
+                        Text("", fontSize = 48.sp)
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = str["hist_empty"] ?: "No scan records found yet.",
@@ -164,7 +164,7 @@ fun StandaloneHistoryCardView(item: CaseEntity, str: Map<String, String>) {
                         .background(Color(0xFFE0E0E0)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("🌿", fontSize = 28.sp)
+                    Text("", fontSize = 28.sp)
                 }
             }
 

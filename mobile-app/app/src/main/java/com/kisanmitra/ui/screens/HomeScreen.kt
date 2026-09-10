@@ -82,14 +82,14 @@ private val CROPS_LIST = listOf(
 object AppStrings {
     fun get(lang: String): Map<String, String> = when (lang) {
         "hi" -> mapOf(
-            "title" to "🌱 किसान मित्र",
+            "title" to "किसान मित्र",
             "step1_lang" to "१. पसंदीदा भाषा",
             "step2_farmer" to "२. किसान का नाम",
             "step3_location" to "३. खेत का स्थान (GPS द्वारा स्वतः खोजा गया)",
             "step4_crop" to "४. मुख्य फसल",
             "btn_proceed" to "पत्ती स्कैनर पर जाएं",
             "scanner_instruction" to "कैमरे के सामने संक्रमित पत्ती रखें",
-            "btn_capture" to "📸 फोटो लें और विश्लेषण करें",
+            "btn_capture" to "फोटो लें और विश्लेषण करें",
             "analyzing" to "एआई द्वारा रोग पहचान हो रही है...",
             "diag_result" to "जांच परिणाम",
             "high_conf" to "उच्च सटीकता (High Confidence)",
@@ -99,7 +99,7 @@ object AppStrings {
             "district_lbl" to "स्थान",
             "disease_lbl" to "पहचाना गया रोग",
             "advisory_title" to "एआई उपचार सलाह (RAG Guidance)",
-            "play_audio" to "🔊 ऑडियो सलाह सुनें (Play Audio)",
+            "play_audio" to "ऑडियो सलाह सुनें (Play Audio)",
             "playing_audio" to "ऑडियो चल रहा है...",
             "btn_restart" to "दूसरे नमूने की जांच करें",
             "tab_scan" to "स्कैन",
@@ -113,26 +113,26 @@ object AppStrings {
             "hist_pending" to "लोकल सेव (सिंक लंबित)",
             "help_title" to "किसान सहायता (Help & Support)",
             "help_desc" to "यदि आपको फसल निदान या सहायता चाहिए, तो नीचे दिए गए माध्यमों से संपर्क करें:",
-            "help_helpline_lbl" to "📞 हेल्पलाइन / फोन: ",
-            "help_email_lbl" to "✉️ ईमेल: ",
-            "help_website_lbl" to "🌐 वेबसाइट: ",
+            "help_helpline_lbl" to "हेल्पलाइन / फोन: ",
+            "help_email_lbl" to "ईमेल: ",
+            "help_website_lbl" to "वेबसाइट: ",
             "close_btn" to "बंद करें",
-            "loc_detecting" to "📡 GPS लोकेशन खोज रहा है...",
+            "loc_detecting" to "GPS लोकेशन खोज रहा है...",
             "disease_name" to "गुलाबी सुंडी (Pink Bollworm)",
             "fallback_advisory" to "फसल अवशेष नष्ट करें, फेरोमोन ट्रैप लगाएं और क्लोरांट्रानिलिप्रोल 18.5% SC @ 60 मिली/एकड़ का छिड़काव करें।",
-            "btn_expert_help" to "👨‍⚕️ संतुष्ट नहीं हैं? विशेषज्ञ से पूछें",
+            "btn_expert_help" to "संतुष्ट नहीं हैं? विशेषज्ञ से पूछें",
             "expert_sending" to "विशेषज्ञ को भेजा जा रहा है...",
             "expert_sent_success" to "आपकी समस्या कृषि विशेषज्ञ को भेज दी गई है।"
         )
         "mr" -> mapOf(
-            "title" to "🌱 किसान मित्र",
+            "title" to "किसान मित्र",
             "step1_lang" to "१. पसंतीची भाषा",
             "step2_farmer" to "२. शेतकऱ्याचे नाव",
             "step3_location" to "३. शेताचे ठिकाण (GPS द्वारे शोधलेले)",
             "step4_crop" to "४. मुख्य पीक",
             "btn_proceed" to "पाने स्कॅनरकडे जा",
             "scanner_instruction" to "कॅमेऱ्यासमोर बाधित पान धरा",
-            "btn_capture" to "📸 फोटो घ्या आणि विश्लेषण करा",
+            "btn_capture" to "फोटो घ्या आणि विश्लेषण करा",
             "analyzing" to "एआई द्वारे रोग तपासणी सुरू आहे...",
             "diag_result" to "निदान निकाल",
             "high_conf" to "उच्च अचूकता (High Confidence)",
@@ -142,7 +142,7 @@ object AppStrings {
             "district_lbl" to "ठिकाण",
             "disease_lbl" to "आढळलेला रोग",
             "advisory_title" to "एआय उपचार सल्ला (RAG Guidance)",
-            "play_audio" to "🔊 मराठी सल्ला ऐका (Play Audio)",
+            "play_audio" to "मराठी सल्ला ऐका (Play Audio)",
             "playing_audio" to "सल्ला वाजत आहे...",
             "btn_restart" to "दुसऱ्या नमुन्याची तपासणी करा",
             "tab_scan" to "स्कॅन",
@@ -156,26 +156,26 @@ object AppStrings {
             "hist_pending" to "स्थानिक सेव्ह (प्रलंबित)",
             "help_title" to "शेतकरी मदत (Help & Support)",
             "help_desc" to "आपल्याला शेतीविषयी किंवा पिकांच्या रोगांबाबतीत मदत हवी असल्यास खालील संपर्कांवर संपर्क साधा:",
-            "help_helpline_lbl" to "📞 हेल्पलाईन / फोन: ",
-            "help_email_lbl" to "✉️ ई-मेल: ",
-            "help_website_lbl" to "🌐 संकेतस्थळ: ",
+            "help_helpline_lbl" to "हेल्पलाईन / फोन: ",
+            "help_email_lbl" to "ई-मेल: ",
+            "help_website_lbl" to "संकेतस्थळ: ",
             "close_btn" to "बंद करा",
-            "loc_detecting" to "📡 GPS लोकेशन शोधत आहे...",
+            "loc_detecting" to "GPS लोकेशन शोधत आहे...",
             "disease_name" to "गुलाबी बोंडअळी (Pink Bollworm)",
             "fallback_advisory" to "पिकाचे अवशेष नष्ट करा, कामगंध सापळे लावा आणि योग्य कीटकनाशकाची फवारणी करा.",
-            "btn_expert_help" to "👨‍⚕️ समाधानी नाही? तज्ज्ञांना विचारा",
+            "btn_expert_help" to "समाधानी नाही? तज्ज्ञांना विचारा",
             "expert_sending" to "तज्ज्ञांकडे पाठवत आहे...",
             "expert_sent_success" to "तुमची समस्या कृषी तज्ज्ञांकडे पाठवण्यात आली आहे."
         )
         else -> mapOf(
-            "title" to "🌱 Kisan Mitra",
+            "title" to "Kisan Mitra",
             "step1_lang" to "1. Preferred Language",
             "step2_farmer" to "2. Farmer Full Name",
             "step3_location" to "3. Farm Location (Auto GPS Detected)",
             "step4_crop" to "4. Primary Crop",
             "btn_proceed" to "Proceed to Leaf Scanner",
             "scanner_instruction" to "Align infected leaf in viewfinder",
-            "btn_capture" to "📸 Capture & Analyze",
+            "btn_capture" to "Capture & Analyze",
             "analyzing" to "Analyzing leaf with ML & RAG...",
             "diag_result" to "Diagnosis Result",
             "high_conf" to "High Confidence",
@@ -185,7 +185,7 @@ object AppStrings {
             "district_lbl" to "Location",
             "disease_lbl" to "Detected Disease",
             "advisory_title" to "AI Treatment Advisory (RAG Guidance)",
-            "play_audio" to "🔊 Listen Audio Advisory (Play)",
+            "play_audio" to "Listen Audio Advisory (Play)",
             "playing_audio" to "Playing Audio Advisory...",
             "btn_restart" to "Diagnose Another Sample",
             "tab_scan" to "Scan",
@@ -199,14 +199,14 @@ object AppStrings {
             "hist_pending" to "Local Saved (Pending Sync)",
             "help_title" to "Farmer Help & Support",
             "help_desc" to "If you need immediate assistance or expert agronomy support, please reach out via:",
-            "help_helpline_lbl" to "📞 Helpline / Tel: ",
-            "help_email_lbl" to "✉️ Email: ",
-            "help_website_lbl" to "🌐 Website: ",
+            "help_helpline_lbl" to "Helpline / Tel: ",
+            "help_email_lbl" to "Email: ",
+            "help_website_lbl" to "Website: ",
             "close_btn" to "Close",
-            "loc_detecting" to "📡 Detecting GPS Location...",
+            "loc_detecting" to "Detecting GPS Location...",
             "disease_name" to "Pink Bollworm",
             "fallback_advisory" to "Destroy crop residues, deploy pheromone traps, and apply recommended bio-pesticides or chemical sprays as per IPM guidelines.",
-            "btn_expert_help" to "👨‍⚕️ Not Satisfied? Ask an Expert",
+            "btn_expert_help" to "Not Satisfied? Ask an Expert",
             "expert_sending" to "Escalating to Expert...",
             "expert_sent_success" to "Your case has been forwarded to an agricultural expert."
         )
@@ -347,7 +347,7 @@ fun HistoryTabContent(selectedLanguage: String) {
         } else if (casesList.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🌿", fontSize = 42.sp)
+                    Text("", fontSize = 42.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(text = str["hist_empty"] ?: "No scan records found yet.", color = Color.Gray, fontSize = 15.sp)
                 }
@@ -380,7 +380,7 @@ fun HistoryCardView(item: CaseEntity, str: Map<String, String>) {
             if (file != null) {
                 Image(painter = rememberAsyncImagePainter(model = file), contentDescription = "Scanned Leaf", modifier = Modifier.size(80.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
             } else {
-                Box(modifier = Modifier.size(80.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFE0E0E0)), contentAlignment = Alignment.Center) { Text("🌿", fontSize = 28.sp) }
+                Box(modifier = Modifier.size(80.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFE0E0E0)), contentAlignment = Alignment.Center) { Text("", fontSize = 28.sp) }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -430,7 +430,7 @@ fun GuideTabContent(selectedLanguage: String) {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text(text = "📚 Crop Protection Guidelines", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text(text = "Crop Protection Guidelines", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         Spacer(modifier = Modifier.height(12.dp))
         LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 80.dp)) {
             items(guides) { item ->
@@ -438,10 +438,10 @@ fun GuideTabContent(selectedLanguage: String) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Text(item.cropName, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text("⚠️ Target: ${item.pests}", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Text("Target: ${item.pests}", fontSize = 13.sp, fontWeight = FontWeight.Medium)
                         Text("⏳ Stage: ${item.stage}", fontSize = 13.sp)
                         Spacer(modifier = Modifier.height(2.dp))
-                        Text("🛡️ Prevention: ${item.tip}", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                        Text("Prevention: ${item.tip}", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -653,7 +653,7 @@ fun HomeScreen() {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = str["help_helpline_lbl"] ?: "📞 Helpline: ",
+                            text = str["help_helpline_lbl"] ?: "Helpline: ",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -684,7 +684,7 @@ fun HomeScreen() {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = str["help_email_lbl"] ?: "✉️ Email: ",
+                            text = str["help_email_lbl"] ?: "Email: ",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -712,7 +712,7 @@ fun HomeScreen() {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = str["help_website_lbl"] ?: "🌐 Website: ",
+                            text = str["help_website_lbl"] ?: "Website: ",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -737,7 +737,7 @@ fun HomeScreen() {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(str["title"] ?: "🌱 Kisan Mitra", fontWeight = FontWeight.Bold) },
+                title = { Text(str["title"] ?: "Kisan Mitra", fontWeight = FontWeight.Bold) },
                 actions = {
                     IconButton(onClick = { showHelpDialog = true }) {
                         Icon(imageVector = Icons.Default.Info, contentDescription = "Help")
@@ -1051,7 +1051,7 @@ fun HomeScreen() {
                                         modifier = Modifier.fillMaxWidth().height(50.dp),
                                         shape = RoundedCornerShape(10.dp)
                                     ) {
-                                        Text(str["btn_capture"] ?: "📸 Capture & Analyze", fontSize = 16.sp)
+                                        Text(str["btn_capture"] ?: "Capture & Analyze", fontSize = 16.sp)
                                     }
 
                                     Spacer(modifier = Modifier.height(10.dp))
@@ -1061,7 +1061,7 @@ fun HomeScreen() {
                                         modifier = Modifier.fillMaxWidth().height(50.dp),
                                         shape = RoundedCornerShape(10.dp)
                                     ) {
-                                        Text("📁 Choose from Gallery", fontSize = 16.sp)
+                                        Text("Choose from Gallery", fontSize = 16.sp)
                                     }
                                 }
                             }
@@ -1166,7 +1166,7 @@ fun HomeScreen() {
                                                     ) {
                                                         Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
                                                         Spacer(modifier = Modifier.width(8.dp))
-                                                        Text(text = if (isAudioPlaying) "⏸️ Pause Audio Advisory" else "🔊 Listen Audio Advisory", color = Color.White, fontWeight = FontWeight.SemiBold)
+                                                        Text(text = if (isAudioPlaying) "⏸Pause Audio Advisory" else "Listen Audio Advisory", color = Color.White, fontWeight = FontWeight.SemiBold)
                                                     }
                                                 }
                                             }
@@ -1197,7 +1197,7 @@ fun HomeScreen() {
                                             )
                                         } else {
                                             Text(
-                                                text = str["btn_expert_help"] ?: "👨‍⚕️ Not Satisfied? Ask an Expert",
+                                                text = str["btn_expert_help"] ?: "Not Satisfied? Ask an Expert",
                                                 fontSize = 15.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = Color.White

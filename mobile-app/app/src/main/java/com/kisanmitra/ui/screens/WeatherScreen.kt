@@ -87,70 +87,70 @@ private val WEATHER_CROPS = listOf(
 object WeatherStrings {
     fun get(lang: String): Map<String, String> = when (lang) {
         "hi" -> mapOf(
-            "title" to "🌤️ कृषि मौसम व फसल अनुकूलता केंद्र",
-            "spray_safe" to "✅ छिड़काव के लिए अनुकूल",
-            "spray_avoid" to "🚫 आज छिड़काव न करें",
+            "title" to "कृषि मौसम व फसल अनुकूलता केंद्र",
+            "spray_safe" to "छिड़काव के लिए अनुकूल",
+            "spray_avoid" to "आज छिड़काव न करें",
             "humidity" to "आर्द्रता",
             "rain" to "बारिश",
             "wind" to "हवा",
-            "outlook_5day" to "📅 अगले ५ दिनों का पूर्वानुमान",
-            "crop_suitability_header" to "🌾 फसलों के लिए मौसम अनुकूलता (Suitability & Warnings)",
-            "status_optimal" to "🟢 सुरक्षित व रोगमुक्त",
-            "status_moderate" to "🟡 मध्यम जोखिम (निगरानी रखें)",
-            "status_high_risk" to "🔴 उच्च बीमारी का खतरा (Outbreak Risk)",
-            "other_district_title" to "📍 महाराष्ट्र के अन्य जिले का मौसम जांचें",
+            "outlook_5day" to "अगले ५ दिनों का पूर्वानुमान",
+            "crop_suitability_header" to "फसलों के लिए मौसम अनुकूलता (Suitability & Warnings)",
+            "status_optimal" to "सुरक्षित व रोगमुक्त",
+            "status_moderate" to "मध्यम जोखिम (निगरानी रखें)",
+            "status_high_risk" to "उच्च बीमारी का खतरा (Outbreak Risk)",
+            "other_district_title" to "महाराष्ट्र के अन्य जिले का मौसम जांचें",
             "select_district_prompt" to "महाराष्ट्र का जिला चुनें",
-            "btn_reset_gps" to "🔄 वापस मेरी GPS लोकेशन पर जाएं",
-            "lab_title" to "🧪 Demo Lab: मौसम परिवर्तन सिमुलेटर",
+            "btn_reset_gps" to "वापस मेरी GPS लोकेशन पर जाएं",
+            "lab_title" to "Demo Lab: मौसम परिवर्तन सिमुलेटर",
             "lab_desc" to "तापमान व आर्द्रता स्लाइडर बदलें और Live AI अलर्ट देखें।",
             "temp_lbl" to "तापमान",
             "hum_lbl" to "हवा में आर्द्रता (Humidity)",
-            "btn_test" to "⚡ Test Risk & Send Telegram Alert",
-            "alert_sent" to "🚨 टेलीग्राम पर अलर्ट भेजा गया!"
+            "btn_test" to "Test Risk & Send Telegram Alert",
+            "alert_sent" to "टेलीग्राम पर अलर्ट भेजा गया!"
         )
         "mr" -> mapOf(
-            "title" to "🌤️ कृषी हवामान व पीक अनुकूलता केंद्र",
-            "spray_safe" to "✅ फवारणी योग्य",
-            "spray_avoid" to "🚫 आज फवारणी टाळा",
+            "title" to "कृषी हवामान व पीक अनुकूलता केंद्र",
+            "spray_safe" to "फवारणी योग्य",
+            "spray_avoid" to "आज फवारणी टाळा",
             "humidity" to "आर्द्रता",
             "rain" to "पाऊस",
             "wind" to "वारा",
-            "outlook_5day" to "📅 पुढील ५ दिवसांचा अंदाज",
-            "crop_suitability_header" to "🌾 पिकांसाठी हवामान अनुकूलता (Suitability & Warnings)",
-            "status_optimal" to "🟢 सुरक्षित व रोगमुक्त",
-            "status_moderate" to "🟡 मध्यम धोका (काळजी घ्या)",
-            "status_high_risk" to "🔴 उच्च रोगाचा धोका (Outbreak Risk)",
-            "other_district_title" to "📍 महाराष्ट्रातील इतर जिल्ह्याचे हवामान तपासा",
+            "outlook_5day" to "पुढील ५ दिवसांचा अंदाज",
+            "crop_suitability_header" to "पिकांसाठी हवामान अनुकूलता (Suitability & Warnings)",
+            "status_optimal" to "सुरक्षित व रोगमुक्त",
+            "status_moderate" to "मध्यम धोका (काळजी घ्या)",
+            "status_high_risk" to "उच्च रोगाचा धोका (Outbreak Risk)",
+            "other_district_title" to "महाराष्ट्रातील इतर जिल्ह्याचे हवामान तपासा",
             "select_district_prompt" to "महाराष्ट्रातील जिल्हा निवडा",
-            "btn_reset_gps" to "🔄 परत माझ्या GPS लोकेशनवर जा",
-            "lab_title" to "🧪 Demo Lab: हवामान बदल चाचणी",
+            "btn_reset_gps" to "परत माझ्या GPS लोकेशनवर जा",
+            "lab_title" to "Demo Lab: हवामान बदल चाचणी",
             "lab_desc" to "Slider फिरवून तापमान/आर्द्रता बदला आणि Live AI Alert बघा.",
             "temp_lbl" to "तापमान",
             "hum_lbl" to "हवेतील आर्द्रता (Humidity)",
-            "btn_test" to "⚡ Test Risk & Send Telegram Alert",
-            "alert_sent" to "🚨 टेलिग्रामवर अलर्ट पाठवला!"
+            "btn_test" to "Test Risk & Send Telegram Alert",
+            "alert_sent" to "टेलिग्रामवर अलर्ट पाठवला!"
         )
         else -> mapOf(
-            "title" to "🌤️ Agro-Weather & Crop Suitability Center",
-            "spray_safe" to "✅ Safe for Spraying",
-            "spray_avoid" to "🚫 Avoid Spraying",
+            "title" to "Agro-Weather & Crop Suitability Center",
+            "spray_safe" to "Safe for Spraying",
+            "spray_avoid" to "Avoid Spraying",
             "humidity" to "Humidity",
             "rain" to "Rain Chance",
             "wind" to "Wind Speed",
-            "outlook_5day" to "📅 5-Day Weather Outlook",
-            "crop_suitability_header" to "🌾 Crop Weather Suitability & Warnings",
-            "status_optimal" to "🟢 Highly Favorable / Safe",
-            "status_moderate" to "🟡 Moderate Risk (Monitoring Advised)",
-            "status_high_risk" to "🔴 High Outbreak Risk",
-            "other_district_title" to "📍 Check Weather for Other Maharashtra Districts",
+            "outlook_5day" to "5-Day Weather Outlook",
+            "crop_suitability_header" to "Crop Weather Suitability & Warnings",
+            "status_optimal" to "Highly Favorable / Safe",
+            "status_moderate" to "Moderate Risk (Monitoring Advised)",
+            "status_high_risk" to "High Outbreak Risk",
+            "other_district_title" to "Check Weather for Other Maharashtra Districts",
             "select_district_prompt" to "Select Maharashtra District",
-            "btn_reset_gps" to "🔄 Reset to My Live GPS Location",
-            "lab_title" to "🧪 Demo Lab: Climate Change Simulator",
+            "btn_reset_gps" to "Reset to My Live GPS Location",
+            "lab_title" to "Demo Lab: Climate Change Simulator",
             "lab_desc" to "Adjust sliders to test climate change impact on crops.",
             "temp_lbl" to "Temperature",
             "hum_lbl" to "Relative Humidity",
-            "btn_test" to "⚡ Test Risk & Send Telegram Alert",
-            "alert_sent" to "🚨 Alert Sent to Telegram!"
+            "btn_test" to "Test Risk & Send Telegram Alert",
+            "alert_sent" to "Alert Sent to Telegram!"
         )
     }
 }
@@ -233,7 +233,7 @@ fun WeatherScreen(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = str["title"] ?: "🌤️ Agro-Weather Center",
+                    text = str["title"] ?: "Agro-Weather Center",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -276,13 +276,13 @@ fun WeatherScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("🌡️ ${w.temperature}°C", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                        Text("${w.temperature}°C", fontSize = 28.sp, fontWeight = FontWeight.Bold)
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = if (w.spraySafe) Color(0xFFDCFCE7) else Color(0xFFFFE4E6)
                         ) {
                             Text(
-                                text = if (w.spraySafe) (str["spray_safe"] ?: "✅ Safe") else (str["spray_avoid"] ?: "🚫 Avoid"),
+                                text = if (w.spraySafe) (str["spray_safe"] ?: "Safe") else (str["spray_avoid"] ?: "Avoid"),
                                 fontWeight = FontWeight.Bold,
                                 color = if (w.spraySafe) Color(0xFF15803D) else Color(0xFFBE123C),
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -306,7 +306,7 @@ fun WeatherScreen(
                                 modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("💧 ${str["humidity"]}", fontSize = 11.sp, color = Color.DarkGray)
+                                Text("${str["humidity"]}", fontSize = 11.sp, color = Color.DarkGray)
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text("${w.humidity.toInt()}%", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             }
@@ -321,7 +321,7 @@ fun WeatherScreen(
                                 modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("🌧️ ${str["rain"]}", fontSize = 11.sp, color = Color.DarkGray)
+                                Text("${str["rain"]}", fontSize = 11.sp, color = Color.DarkGray)
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text("${w.rainProb.toInt()}%", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             }
@@ -336,7 +336,7 @@ fun WeatherScreen(
                                 modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("💨 ${str["wind"]}", fontSize = 11.sp, color = Color.DarkGray)
+                                Text("${str["wind"]}", fontSize = 11.sp, color = Color.DarkGray)
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text("${String.format(Locale.US, "%.1f", w.windSpeed)} km/h", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
@@ -350,7 +350,7 @@ fun WeatherScreen(
 
         // 2. Crop Weather Suitability Selector
         Text(
-            text = str["crop_suitability_header"] ?: "🌾 Crop Weather Suitability & Warnings",
+            text = str["crop_suitability_header"] ?: "Crop Weather Suitability & Warnings",
             fontWeight = FontWeight.Bold,
             fontSize = 15.sp,
             color = MaterialTheme.colorScheme.primary
@@ -382,9 +382,9 @@ fun WeatherScreen(
                             Text(cropName, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             Text(
                                 text = when (status) {
-                                    "HIGH_RISK" -> "🔴 Risk ($riskVal%)"
-                                    "MODERATE" -> "🟡 Moderate ($riskVal%)"
-                                    else -> "🟢 Safe ($riskVal%)"
+                                    "HIGH_RISK" -> "Risk ($riskVal%)"
+                                    "MODERATE" -> "Moderate ($riskVal%)"
+                                    else -> "Safe ($riskVal%)"
                                 },
                                 fontSize = 11.sp,
                                 color = textColor,
@@ -425,7 +425,7 @@ fun WeatherScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "🌾 ${currentActiveCrop.replaceFirstChar { it.uppercase() }}",
+                        text = "${currentActiveCrop.replaceFirstChar { it.uppercase() }}",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
                     )
@@ -448,7 +448,7 @@ fun WeatherScreen(
                 if (!selectedCropInfo?.potentialDisease.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "⚠️ रोग / कीड: ${selectedCropInfo?.potentialDisease}",
+                        text = "रोग / कीड: ${selectedCropInfo?.potentialDisease}",
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         color = if (isOutbreak) Color(0xFFB71C1C) else Color(0xFF92400E)
@@ -468,7 +468,7 @@ fun WeatherScreen(
         Spacer(modifier = Modifier.height(18.dp))
 
         // 4. 5-Day Horizontal Forecast Cards
-        Text(str["outlook_5day"] ?: "📅 5-Day Forecast", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        Text(str["outlook_5day"] ?: "5-Day Forecast", fontWeight = FontWeight.Bold, fontSize = 15.sp)
         Spacer(modifier = Modifier.height(8.dp))
 
         val forecastList = (dashboardData?.weather?.forecast5days ?: suitabilityData?.weather?.forecast5days) ?: emptyList()
@@ -484,9 +484,9 @@ fun WeatherScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(day.date.takeLast(5), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("⛅", fontSize = 20.sp)
+                        Text("", fontSize = 20.sp)
                         Text("${day.maxTemp.toInt()}° / ${day.minTemp.toInt()}°", fontSize = 12.sp)
-                        Text("🌧️ ${day.rainProb.toInt()}%", fontSize = 11.sp, color = Color.Gray)
+                        Text("${day.rainProb.toInt()}%", fontSize = 11.sp, color = Color.Gray)
                     }
                 }
             }
@@ -503,7 +503,7 @@ fun WeatherScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = str["other_district_title"] ?: "📍 Check Other Maharashtra District",
+                    text = str["other_district_title"] ?: "Check Other Maharashtra District",
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     color = Color(0xFF283593)
@@ -579,7 +579,7 @@ fun WeatherScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = str["lab_title"] ?: "🧪 SIH Demo Lab",
+                    text = str["lab_title"] ?: "SIH Demo Lab",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     color = Color(0xFF6A1B9A)
@@ -638,7 +638,7 @@ fun WeatherScreen(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Simulate")
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(str["btn_test"] ?: "⚡ Test Weather Impact")
+                    Text(str["btn_test"] ?: "Test Weather Impact")
                 }
 
                 simResult?.let { s ->
@@ -654,7 +654,7 @@ fun WeatherScreen(
                     ) {
                         Column {
                             Text(
-                                text = if (s.isOutbreakRisk) "🚨 ${s.potentialDisease} (${s.riskPercentage}% Outbreak Risk)" else "✅ Safe (${s.riskPercentage}%)",
+                                text = if (s.isOutbreakRisk) "${s.potentialDisease} (${s.riskPercentage}% Outbreak Risk)" else "Safe (${s.riskPercentage}%)",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
                                 color = if (s.isOutbreakRisk) Color(0xFFB71C1C) else Color(0xFF2E7D32)

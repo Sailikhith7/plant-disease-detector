@@ -44,9 +44,9 @@ fun GuidelinesScreen(selectedLanguage: String = "en") {
     }
 
     val headerTitle = when (selectedLanguage) {
-        "hi" -> "📚 ऑफलाइन फसल सुरक्षा दिशानिर्देश"
-        "mr" -> "📚 ऑफलाइन पीक संरक्षण मार्गदर्शक"
-        else -> "📚 Offline Crop Protection Guidelines"
+        "hi" -> "ऑफलाइन फसल सुरक्षा दिशानिर्देश"
+        "mr" -> "ऑफलाइन पीक संरक्षण मार्गदर्शक"
+        else -> "Offline Crop Protection Guidelines"
     }
 
     Column(
@@ -78,10 +78,10 @@ fun GuidelinesScreen(selectedLanguage: String = "en") {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Text(item.cropName, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(6.dp))
-                        Text("⚠️ Key Targets: ${item.keyPests}", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Text("Key Targets: ${item.keyPests}", fontSize = 13.sp, fontWeight = FontWeight.Medium)
                         Text("⏳ Vulnerable Phase: ${item.criticalStage}", fontSize = 13.sp)
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text("🛡️ Prevention: ${item.preventiveTip}", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                        Text("Prevention: ${item.preventiveTip}", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }

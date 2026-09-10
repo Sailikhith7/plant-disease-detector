@@ -37,13 +37,12 @@ import java.net.URLEncoder
 
 private fun sharePrescriptionOnWhatsApp(context: Context, item: ExpertDeskCaseDto) {
     val rawMessage = """
-        🌱 *किसान मित्र - तज्ज्ञ ई-प्रिस्क्रिप्शन* 🩺
-        ----------------------------------
-        👤 *शेतकरी:* ${item.farmerName ?: "Farmer"} (${item.district ?: "Maharashtra"})
-        🌿 *पीक:* ${item.crop?.replaceFirstChar { it.uppercase() } ?: "Crop"}
-        ⚠️ *आढळलेला रोग:* ${item.disease?.replace('_', ' ') ?: "N/A"}
+        *किसान मित्र - तज्ज्ञ ई-प्रिस्क्रिप्शन*         ----------------------------------
+        *शेतकरी:* ${item.farmerName ?: "Farmer"} (${item.district ?: "Maharashtra"})
+        *पीक:* ${item.crop?.replaceFirstChar { it.uppercase() } ?: "Crop"}
+        *आढळलेला रोग:* ${item.disease?.replace('_', ' ') ?: "N/A"}
         
-        📋 *तज्ज्ञांचे निदान व औषधोपचार:*
+        *तज्ज्ञांचे निदान व औषधोपचार:*
         ${item.expertResponse ?: "शिफारस उपलब्ध नाही."}
         ----------------------------------
         _कृषी सेवा केंद्र / खत विक्रेत्यासाठी मार्गदर्शक पावती._
@@ -113,9 +112,9 @@ fun ExpertDeskScreen(
     }
 
     val headerTitle = when (selectedLanguage) {
-        "mr" -> "🩺 तज्ज्ञ सल्ला (Expert Desk)"
-        "hi" -> "🩺 विशेषज्ञ सलाह (Expert Desk)"
-        else -> "🩺 Expert Desk & Prescriptions"
+        "mr" -> "तज्ज्ञ सल्ला (Expert Desk)"
+        "hi" -> "विशेषज्ञ सलाह (Expert Desk)"
+        else -> "Expert Desk & Prescriptions"
     }
 
     Column(
@@ -153,7 +152,7 @@ fun ExpertDeskScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("👨‍⚕️", fontSize = 42.sp)
+                    Text("", fontSize = 42.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = if (selectedLanguage == "mr") "कोणतीही तज्ज्ञ तपासणी नोंद नाही." else "No expert review cases found.",
@@ -211,7 +210,7 @@ fun ExpertDeskCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "🌱 ${item.crop?.replaceFirstChar { it.uppercase() } ?: "Crop"}",
+                    text = "${item.crop?.replaceFirstChar { it.uppercase() } ?: "Crop"}",
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
                     color = Color(0xFF1F2937)
@@ -293,7 +292,7 @@ fun ExpertDeskCard(
                 )
 
                 Text(
-                    text = "👨‍⚕️ तज्ज्ञांचे निदान व औषधोपचार (Expert Prescription):",
+                    text = "तज्ज्ञांचे निदान व औषधोपचार (Expert Prescription):",
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
                     color = Color(0xFF166534)
@@ -386,7 +385,7 @@ fun ExpertDeskCard(
                     Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (isAudioPlaying) "⏸️ Pause Voice Prescription" else "🔊 Listen Doctor Voice Note (मराठी)",
+                        text = if (isAudioPlaying) "⏸Pause Voice Prescription" else "Listen Doctor Voice Note (मराठी)",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White
@@ -411,7 +410,7 @@ fun ExpertDeskCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "📲 WhatsApp वर पावती शेअर करा (Share to Shop)",
+                        text = "WhatsApp वर पावती शेअर करा (Share to Shop)",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF15803D)

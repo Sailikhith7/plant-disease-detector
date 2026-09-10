@@ -32,6 +32,9 @@ fun DiagnosisResultScreen(
     status: String = "healthy",
     advisoryText: String = "Apply copper oxychloride at 2.5g per litre of water. Maintain proper drainage and remove infected leaves.",
     audioUrl: String? = null,
+    pest: String? = null,
+    pestConfidence: Float? = null,
+    pestStatus: String? = null,
     onBackClick: () -> Unit = {},
     onViewCaseStatusClick: () -> Unit = {}
 ) {
@@ -178,6 +181,52 @@ fun DiagnosisResultScreen(
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1B5E20)
                         )
+                    }
+                }
+
+                // ==========================================
+                // 2b. PEST DETECTION CARD (shown only when a
+                // pest was detected alongside the disease)
+                // ==========================================
+                if (!pest.isNullOrBlank() && !pest.equals("Unknown", ignoreCase = true)) {
+                    val pestConfidencePercentage = ((pestConfidence ?: 0f) * 100).toInt()
+                    val pestIsConfident = pestStatus.equals("confident", ignoreCase = true)
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Pest Detected",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = Color(0xFFE65100)
+                                )
+
+                                Text(
+                                    text = if (pestIsConfident) "$pestConfidencePercentage% match" else "Low confidence ($pestConfidencePercentage%)",
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFE65100),
+                                    fontSize = 13.sp
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Text(
+                                text = pest,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFBF360C)
+                            )
+                        }
                     }
                 }
 
