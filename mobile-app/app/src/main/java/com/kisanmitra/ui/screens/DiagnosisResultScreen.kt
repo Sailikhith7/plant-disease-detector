@@ -38,8 +38,13 @@ fun DiagnosisResultScreen(
     onBackClick: () -> Unit = {},
     onViewCaseStatusClick: () -> Unit = {}
 ) {
-    val isUncertain = status.equals("uncertain", ignoreCase = true) || confidence < 0.70f
-    val confidencePercentage = (confidence * 100).toInt()
+    val diseaseConfident = status.equals("confident", ignoreCase = true) && confidence >= 0.70f
+    val pestConfident = pestStatus?.equals("confident", ignoreCase = true) == true && (pestConfidence ?: 0f) >= 0.70f
+    val isUncertain = !diseaseConfident && !pestConfident
+
+// for display, use whichever is higher so the badge % isn't misleadingly just the disease number
+    val displayConfidence = maxOf(confidence, pestConfidence ?: 0f)
+    val confidencePercentage = (displayConfidence * 100).toInt()
     val context = LocalContext.current
     var isPlaying by remember { mutableStateOf(false) }
 

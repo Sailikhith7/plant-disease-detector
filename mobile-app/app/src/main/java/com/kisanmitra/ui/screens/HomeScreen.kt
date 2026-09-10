@@ -388,7 +388,12 @@ fun HistoryCardView(item: CaseEntity, str: Map<String, String>) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = "${str["crop_lbl"]}: ${item.crop.replaceFirstChar { it.uppercase() }}", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 Text(text = "${str["disease_lbl"]}: ${item.detectedDisease}", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
-                Text(text = "${str["high_conf"]}: ${(item.confidence * 100).toInt()}%", fontSize = 12.sp, color = Color.DarkGray)
+                val isHighConf = item.confidence >= 0.75f
+                Text(
+                    text = "${if (isHighConf) str["high_conf"] else str["low_conf"]}: ${(item.confidence * 100).toInt()}%",
+                    fontSize = 12.sp,
+                    color = if (isHighConf) Color.DarkGray else Color(0xFFE65100)
+                )
                 Text(text = dateString, fontSize = 11.sp, color = Color.Gray)
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -889,40 +894,7 @@ fun HomeScreen() {
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(20.dp))
 
-                                Text(
-                                    str["step4_crop"] ?: "4. Primary Crop",
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.align(Alignment.Start)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    CROPS_LIST.take(3).forEach { (cropKey, cropLabel) ->
-                                        FilterChip(
-                                            selected = selectedCrop == cropKey,
-                                            onClick = { selectedCrop = cropKey },
-                                            label = { Text(cropLabel, fontSize = 12.sp) }
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    CROPS_LIST.drop(3).forEach { (cropKey, cropLabel) ->
-                                        FilterChip(
-                                            selected = selectedCrop == cropKey,
-                                            onClick = { selectedCrop = cropKey },
-                                            label = { Text(cropLabel, fontSize = 12.sp) }
-                                        )
-                                    }
-                                }
 
                                 Spacer(modifier = Modifier.height(32.dp))
 
@@ -1068,8 +1040,8 @@ fun HomeScreen() {
 
                             3 -> {
                                 resultData?.let { res ->
-                                    val isHighConfidence = res.confidence >= 0.75f
-                                    val confidencePercent = (res.confidence * 100).toInt()
+                                    val isHighConfidence = res.confidence >= 0.75f || (res.pestConfidence ?: 0f) >= 0.70f
+                                    val confidencePercent = (maxOf(res.confidence, res.pestConfidence ?: 0f) * 100).toInt()
 
                                     Text(str["diag_result"] ?: "Diagnosis Result", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                                     Spacer(modifier = Modifier.height(8.dp))
@@ -1115,6 +1087,43 @@ fun HomeScreen() {
                                     }
 
                                     Spacer(modifier = Modifier.height(16.dp))
+
+                                    if (!res.pest.isNullOrBlank() && !res.pest.equals("Unknown", ignoreCase = true)) {
+                                        val pestConfidencePercent = ((res.pestConfidence ?: 0f) * 100).toInt()
+                                        val pestIsConfident = res.pestStatus.equals("confident", ignoreCase = true)
+
+                                        Card(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                        ) {
+                                            Column(modifier = Modifier.padding(16.dp)) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text("Pest Detected", style = MaterialTheme.typography.labelLarge, color = Color(0xFFE65100))
+                                                    Text(
+                                                        text = if (pestIsConfident) "$pestConfidencePercent% match" else "Low confidence ($pestConfidencePercent%)",
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color(0xFFE65100),
+                                                        fontSize = 13.sp
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Text(
+                                                    text = res.pest.replace('_', ' '),
+                                                    style = MaterialTheme.typography.titleLarge,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFFBF360C)
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                    }
 
                                     if (res.response.isNotBlank()) {
                                         Text(str["advisory_title"] ?: "AI Treatment Advisory", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)

@@ -182,10 +182,11 @@ fun StandaloneHistoryCardView(item: CaseEntity, str: Map<String, String>) {
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium
                 )
+                val isHighConf = item.confidence >= 0.75f
                 Text(
-                    text = "${str["high_conf"] ?: "Confidence"}: ${(item.confidence * 100).toInt()}%",
+                    text = "${(if (isHighConf) str["high_conf"] else str["low_conf"]) ?: "Confidence"}: ${(item.confidence * 100).toInt()}%",
                     fontSize = 12.sp,
-                    color = Color.DarkGray
+                    color = if (isHighConf) Color.DarkGray else Color(0xFFE65100)
                 )
                 Text(
                     text = dateString,
